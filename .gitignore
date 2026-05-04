@@ -1,0 +1,8 @@
+build/
+.cache/
+.vscode/
+.idea/
+compile_commands.json
+*.duckdb
+*.duckdb.wal
+*.duckdb_extension

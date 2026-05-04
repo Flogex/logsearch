@@ -1,0 +1,70 @@
+{
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "EXTENSION_STATIC_BUILD": "1"
+      }
+    },
+    {
+      "name": "release",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "debug",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ENABLE_ASAN": "ON",
+        "ENABLE_UBSAN": "ON"
+      }
+    },
+    {
+      "name": "reldebinfo",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/reldebinfo",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "release-ci",
+      "inherits": "release",
+      "cacheVariables": {
+        "ENABLE_LINTING": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "configurePreset": "release",
+      "name": "release"
+    },
+    {
+      "configurePreset": "debug",
+      "name": "debug"
+    },
+    {
+      "configurePreset": "reldebinfo",
+      "name": "reldebinfo"
+    },
+    {
+      "configurePreset": "release-ci",
+      "name": "release-ci"
+    }
+  ],
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "version": 6
+}
