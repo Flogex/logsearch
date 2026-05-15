@@ -11,10 +11,7 @@ FetchContent_MakeAvailable(Catch2)
 
 add_executable(unittests test_basic.cpp)
 
-target_include_directories(
-  unittests
-  PRIVATE ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/test
-)
+target_include_directories(unittests PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/test)
 target_include_directories(unittests PRIVATE SYSTEM ${duckdb_SOURCE_DIR}/src/include)
 
 target_link_libraries(

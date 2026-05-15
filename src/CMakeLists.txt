@@ -4,11 +4,8 @@ build_static_extension(logsearch ${SOURCE_FILES})
 set(PARAMETERS " ")
 build_loadable_extension(logsearch ${PARAMETERS} ${SOURCE_FILES})
 
-target_include_directories(
-  ${EXTENSION_NAME}
-  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-)
-target_include_directories(${LOADABLE_EXTENSION_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(${EXTENSION_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+target_include_directories(${LOADABLE_EXTENSION_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Expose the static extension to DuckDB's install set so packaging /
 # distribution flows pick it up. DUCKDB_EXPORT_SET and INSTALL_LIB_DIR are
