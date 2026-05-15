@@ -1,12 +1,26 @@
-#include "test_helpers/database_fixture.hpp"
+#include "duckdb/execution/index/index_type_set.hpp"
+#include "duckdb/main/connection.hpp"
+#include "duckdb/main/database.hpp"
+#include "logsearch_extension.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
-using logsearch::test_helpers::DatabaseFixture;
+TEST_CASE("LogsearchIndex registers as an index type", "[basic]") {
+    duckdb::DuckDB db(nullptr);
+    db.LoadStaticExtension<duckdb::LogsearchExtension>();
 
-TEST_CASE_METHOD(DatabaseFixture, "logsearch_version returns version string", "[basic]") {
-    auto res = con.Query("SELECT logsearch_version()");
-    REQUIRE_FALSE(res->HasError());
-    REQUIRE(res->RowCount() == 1);
-    REQUIRE(res->GetValue(0, 0).ToString() == "0.1.0");
+    auto& index_types = db.instance->config.GetIndexTypes();
+    auto type = index_types.FindByName("logsearch");
+    REQUIRE(type);
+    REQUIRE(type->name == "logsearch");
+}
+
+TEST_CASE("LogsearchIndex can be created", "[basic]") {
+    duckdb::DuckDB db(nullptr);
+    db.LoadStaticExtension<duckdb::LogsearchExtension>();
+
+    duckdb::Connection con(db);
+    con.Query("CREATE TABLE test (id INTEGER, value VARCHAR)");
+    const auto result = con.Query("CREATE INDEX idx ON test USING logsearch(value)");
+    REQUIRE_FALSE(result->HasError());
 }

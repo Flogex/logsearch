@@ -1,9 +1,0 @@
-# name: test/sql/logsearch.test
-# description: smoke test for logsearch extension scalar functions
-
-require logsearch
-
-query I
-SELECT logsearch_version();
-----
-0.1.0

@@ -1,0 +1,10 @@
+# name: test/sql/logsearch.test
+# description: smoke test for logsearch extension scalar functions
+
+require logsearch
+
+statement ok
+CREATE TABLE tbl (id INTEGER, message VARCHAR);
+
+statement ok
+CREATE INDEX simple_logsearch_idx ON tbl USING logsearch (message);

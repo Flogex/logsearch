@@ -1,4 +1,4 @@
-set(SOURCE_FILES logsearch_extension.cpp)
+set(SOURCE_FILES logsearch_extension.cpp duckdb-index/logsearch_index.cpp)
 
 build_static_extension(logsearch ${SOURCE_FILES})
 set(PARAMETERS " ")

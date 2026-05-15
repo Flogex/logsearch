@@ -2,27 +2,23 @@
 
 #include "logsearch_extension.hpp"
 
-#include "duckdb/function/scalar_function.hpp"
+#include "duckdb-index/logsearch_index.hpp"
+#include "duckdb/execution/index/index_type_set.hpp"
+#include "duckdb/main/database.hpp"
 #include "duckdb/main/extension/extension_loader.hpp"
+
+namespace logsearch {
+
+static void load_internal(duckdb::ExtensionLoader& loader) {
+    duckdb::IndexTypeSet& index_types = loader.GetDatabaseInstance().config.GetIndexTypes();
+    index_types.RegisterIndexType(LogsearchIndex::GetIndexType());
+}
+} // namespace logsearch
 
 namespace duckdb {
 
-namespace {
-constexpr const char* kLogsearchVersion = "0.1.0";
-
-void LogsearchVersionFun(DataChunk&, ExpressionState&, Vector& result) {
-    result.SetValue(0, Value(kLogsearchVersion));
-    result.SetVectorType(VectorType::CONSTANT_VECTOR);
-}
-} // namespace
-
-void LogsearchExtension::LoadInternal(ExtensionLoader& loader) {
-    const auto version_fn = ScalarFunction("logsearch_version", {}, LogicalType::VARCHAR, LogsearchVersionFun);
-    loader.RegisterFunction(version_fn);
-}
-
 void LogsearchExtension::Load(ExtensionLoader& loader) {
-    LoadInternal(loader);
+    logsearch::load_internal(loader);
 }
 
 std::string LogsearchExtension::Name() {
@@ -30,13 +26,13 @@ std::string LogsearchExtension::Name() {
 }
 
 std::string LogsearchExtension::Version() const {
-    return kLogsearchVersion;
+    return "0.1";
 }
 
 } // namespace duckdb
 
 extern "C" {
 DUCKDB_CPP_EXTENSION_ENTRY(logsearch, ext_loader) {
-    duckdb::LogsearchExtension::LoadInternal(ext_loader);
+    logsearch::load_internal(ext_loader);
 }
 }
