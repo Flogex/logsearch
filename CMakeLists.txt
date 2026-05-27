@@ -29,6 +29,9 @@ if(PROJECT_IS_TOP_LEVEL)
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -DDUCKDB_FORCE_ASSERT")
   set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -DDUCKDB_FORCE_ASSERT")
 
+  set(FETCHCONTENT_TRY_FIND_PACKAGE_MODE NEVER)
+  set(FETCHCONTENT_QUIET OFF)
+
   # Tell DuckDB to bake logsearch into duckdb_static and register its SQLLogicTests so
   # the duckdb unittest binary can resolve `require logsearch`. DuckDB consumes this
   # during its own CMake processing and calls `add_subdirectory` back into this file. The
@@ -44,8 +47,10 @@ if(PROJECT_IS_TOP_LEVEL)
   FetchContent_Declare(
     duckdb
     GIT_REPOSITORY https://github.com/duckdb/duckdb.git
-    GIT_TAG v1.5.2
+    GIT_TAG
+      14eca11bd9d4a0de2ea0f078be588a9c1c5b279c # v1.5.3
     GIT_SHALLOW TRUE
+    SYSTEM
   )
   FetchContent_MakeAvailable(duckdb)
 
