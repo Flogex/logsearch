@@ -7,6 +7,47 @@ build_loadable_extension(logsearch ${PARAMETERS} ${SOURCE_FILES})
 target_include_directories(${EXTENSION_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 target_include_directories(${LOADABLE_EXTENSION_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
+# Compiler warnings. PRIVATE so they don't propagate to DuckDB or consumers.
+# Curated to be strict without being noisy. -Werror is gated on ENABLE_LINTING
+# so local dev builds still succeed on new warnings; CI catches them.
+set(
+  WARN_FLAGS
+  -Wall
+  -Wextra
+  -Wpedantic
+  -Wshadow
+  -Wnon-virtual-dtor
+  -Wold-style-cast
+  -Wcast-align
+  -Woverloaded-virtual
+  -Wnull-dereference
+  -Wdouble-promotion
+  -Wformat=2
+  -Wimplicit-fallthrough
+  -Wextra-semi
+  -Wunused
+  -Wzero-as-null-pointer-constant
+)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  # GCC-only warnings (Clang doesn't accept some of these or treats them as no-ops).
+  # -Wno-missing-field-initializers: GCC fires this on C++20 designated initializers
+  # that omit fields (relying on default member init)
+  list(
+    APPEND WARN_FLAGS
+    -Wmisleading-indentation
+    -Wduplicated-cond
+    -Wduplicated-branches
+    -Wlogical-op
+    -Wno-missing-field-initializers
+  )
+endif()
+foreach(target IN ITEMS ${EXTENSION_NAME} ${LOADABLE_EXTENSION_NAME})
+  target_compile_options(${target} PRIVATE ${WARN_FLAGS})
+  if(ENABLE_LINTING)
+    target_compile_options(${target} PRIVATE -Werror)
+  endif()
+endforeach()
+
 # Expose the static extension to DuckDB's install set so packaging /
 # distribution flows pick it up. DUCKDB_EXPORT_SET and INSTALL_LIB_DIR are
 # defined by DuckDB's CMake when it configures extensions.

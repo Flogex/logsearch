@@ -1,25 +1,24 @@
 ---
-# Curated check set. Enable broad families, then opt out of known-noisy or
-# stylistic-only checks.
+# Enable broad families, then opt out of known-noisy or stylistic-only checks.
 Checks: >
   bugprone-*,
   cert-*,
   clang-analyzer-*,
+  concurrency-*,
+  cppcoreguidelines-*,
   misc-*,
   modernize-*,
   performance-*,
   portability-*,
   readability-*,
   -bugprone-easily-swappable-parameters,
+  -cppcoreguidelines-avoid-non-const-global-variables,
   -misc-include-cleaner,
   -misc-no-recursion,
   -misc-non-private-member-variables-in-classes,
-  -modernize-use-nodiscard,
   -modernize-use-trailing-return-type,
   -portability-avoid-pragma-once,
   -readability-identifier-length,
-  -readability-magic-numbers,
-  -readability-named-parameter,
   google-explicit-constructor,
   google-build-namespaces,
   google-readability-casting,

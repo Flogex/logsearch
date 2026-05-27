@@ -10,8 +10,8 @@ namespace duckdb {
 class LogsearchExtension final : public Extension {
 public:
     void Load(ExtensionLoader& loader) override;
-    std::string Name() override;
-    std::string Version() const override;
+    [[nodiscard]] std::string Name() override;
+    [[nodiscard]] std::string Version() const override;
 };
 
 } // namespace duckdb

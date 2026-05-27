@@ -7,18 +7,17 @@
 #include "duckdb/main/database.hpp"
 #include "duckdb/main/extension/extension_loader.hpp"
 
-namespace logsearch {
-
-static void load_internal(duckdb::ExtensionLoader& loader) {
+namespace {
+void load_internal(duckdb::ExtensionLoader& loader) {
     duckdb::IndexTypeSet& index_types = loader.GetDatabaseInstance().config.GetIndexTypes();
-    index_types.RegisterIndexType(LogsearchIndex::GetIndexType());
+    index_types.RegisterIndexType(logsearch::LogsearchIndex::GetIndexType());
 }
-} // namespace logsearch
+} // namespace
 
 namespace duckdb {
 
 void LogsearchExtension::Load(ExtensionLoader& loader) {
-    logsearch::load_internal(loader);
+    load_internal(loader);
 }
 
 std::string LogsearchExtension::Name() {
@@ -33,6 +32,6 @@ std::string LogsearchExtension::Version() const {
 
 extern "C" {
 DUCKDB_CPP_EXTENSION_ENTRY(logsearch, ext_loader) {
-    logsearch::load_internal(ext_loader);
+    load_internal(ext_loader);
 }
 }

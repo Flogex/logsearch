@@ -58,6 +58,18 @@ if(PROJECT_IS_TOP_LEVEL)
   add_subdirectory(test)
 else()
   # Re-entry from DuckDB's CMakeLists:
-  # DuckDB's extension_build_tools.cmake called add_subdirectory(${SOURCE_DIR}) for us.
+  # DuckDB's extension_build_tools.cmake called add_subdirectory(${CMAKE_CURRENT_LIST_DIR}) for us.
+
+  # DuckDB uses old-style include_directories(). Hence, we have a bunch of directories in INCLUDE_DIRECTORIES now
+  # that are added with -I, not -isystem, to the compiler. This means we will get compiler warnings from DuckDB's headers.
+  # To avoid that, we re-add DuckDB's include directories as SYSTEM.
+  get_directory_property(_inherited_inc INCLUDE_DIRECTORIES)
+  if(_inherited_inc)
+    set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
+    foreach(d IN LISTS _inherited_inc)
+      include_directories(SYSTEM ${d})
+    endforeach()
+  endif()
+
   add_subdirectory(src)
 endif()

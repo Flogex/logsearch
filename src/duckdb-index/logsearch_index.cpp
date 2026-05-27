@@ -5,6 +5,7 @@
 #include "duckdb/parser/parsed_data/alter_table_info.hpp"
 #include "duckdb/planner/operator/logical_create_index.hpp"
 
+namespace logsearch {
 duckdb::IndexType LogsearchIndex::GetIndexType() {
     duckdb::IndexType logsearch_type;
     logsearch_type.name = LogsearchIndex::NAME;
@@ -16,3 +17,4 @@ duckdb::IndexType LogsearchIndex::GetIndexType() {
     };
     return logsearch_type;
 }
+} // namespace logsearch
