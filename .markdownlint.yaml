@@ -1,0 +1,17 @@
+# markdownlint-cli2 configuration.
+# Reference: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+# Inherit the default rule set.
+default: true
+
+# MD013 (line-length): disabled — our docs use long lines inside tables, code
+# blocks, and prose. Wrapping at 80 columns hurts more than it helps for the
+# kinds of files we keep here (READMEs with wide tables, TODOs with long
+# task descriptions).
+MD013: false
+
+# MD033 (no-inline-html): allow inline HTML for the few cases where Markdown
+# can't express what we want (e.g., <br> in tables). Loosen only when needed.
+MD033:
+  allowed_elements:
+    - br

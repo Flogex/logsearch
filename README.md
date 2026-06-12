@@ -3,6 +3,7 @@
 [![CI](https://github.com/Flogex/logsearch/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Flogex/logsearch/actions/workflows/ci.yml)
 
 DuckDB extension for full-text search, optimized for log data:
+
 - Time-ordered, append-only, immutable
 - Heavily skewed towards recent data
 - Write-heavy
@@ -12,19 +13,23 @@ DuckDB extension for full-text search, optimized for log data:
 ## Setup
 
 **Required:**
+
 - [just](https://github.com/casey/just) (`brew install just` or `cargo install just`)
 - cmake ≥ 3.25
 - ninja build generator
 - pre-commit
 
 **Recommended:**
+
 - ccache or sccache
 
 **Optional:**
+
 - clang-tidy (used by linting recipes and the CI build)
 - cppcheck (used by linting recipes and the CI build)
 
 On macOS:
+
 ```sh
 brew install bash just cmake ninja ccache llvm cppcheck pre-commit
 ```
@@ -32,6 +37,7 @@ brew install bash just cmake ninja ccache llvm cppcheck pre-commit
 `clang-tidy` ships with the Homebrew `llvm` formula; ensure it is on `PATH`.
 
 Install the pre-commit hooks with:
+
 ```sh
 pre-commit install
 ```
