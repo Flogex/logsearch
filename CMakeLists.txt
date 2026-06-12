@@ -14,7 +14,7 @@ option(ENABLE_UBSAN "Build extension targets with UndefinedBehaviorSanitizer" OF
 # DuckDB reads extension_config.cmake and calls add_subdirectory again to load this directory.
 # The else branch covers re-entrance. On re-entrance, DuckDB's CMake functions are available.
 if(PROJECT_IS_TOP_LEVEL)
-  set(CMAKE_CXX_STANDARD 20)
+  set(CMAKE_CXX_STANDARD 17)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
   set(CMAKE_CXX_EXTENSIONS OFF)
 
