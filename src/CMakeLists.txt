@@ -1,4 +1,4 @@
-set(SOURCE_FILES logsearch_extension.cpp duckdb-index/logsearch_index.cpp)
+set(SOURCE_FILES analyzer/analyzer_ub.cpp duckdb-index/logsearch_index.cpp logsearch_extension.cpp)
 
 # Registers the extension targets using DuckDB's CMake helper functions
 build_static_extension(logsearch ${SOURCE_FILES})
