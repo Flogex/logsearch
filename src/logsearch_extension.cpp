@@ -3,9 +3,10 @@
 #include "logsearch_extension.hpp"
 
 #include "duckdb-index/logsearch_index.hpp"
-#include "duckdb/execution/index/index_type_set.hpp"
-#include "duckdb/main/database.hpp"
-#include "duckdb/main/extension/extension_loader.hpp"
+
+#include <duckdb/execution/index/index_type_set.hpp>
+#include <duckdb/main/database.hpp>
+#include <duckdb/main/extension/extension_loader.hpp>
 
 namespace {
 void load_internal(duckdb::ExtensionLoader& loader) {

@@ -1,9 +1,9 @@
-#include "duckdb/execution/index/index_type_set.hpp"
-#include "duckdb/main/connection.hpp"
-#include "duckdb/main/database.hpp"
 #include "logsearch_extension.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <duckdb/execution/index/index_type_set.hpp>
+#include <duckdb/main/connection.hpp>
+#include <duckdb/main/database.hpp>
 
 TEST_CASE("LogsearchIndex registers as an index type", "[basic]") {
     duckdb::DuckDB db(nullptr);

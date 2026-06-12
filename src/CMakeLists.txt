@@ -1,5 +1,6 @@
 set(SOURCE_FILES logsearch_extension.cpp duckdb-index/logsearch_index.cpp)
 
+# Registers the extension targets using DuckDB's CMake helper functions
 build_static_extension(logsearch ${SOURCE_FILES})
 set(PARAMETERS " ")
 build_loadable_extension(logsearch ${PARAMETERS} ${SOURCE_FILES})
@@ -73,14 +74,13 @@ if(SANITIZER_FLAGS)
       ${target}
       PRIVATE ${SANITIZER_FLAGS} -fno-sanitize-recover=all -fno-omit-frame-pointer
     )
-    # Link flags are propagates to consumers (e.g. duckdb_static) so the final binary links the sanitizer runtime.
+    # Link flags propagate to consumers (e.g. duckdb_static) so the final binary links the sanitizer runtime.
     # Otherwise, we would get unresolved __asan_/__ubsan_ symbols.
     target_link_options(${target} PUBLIC ${SANITIZER_FLAGS})
   endforeach()
 endif()
 
 if(ENABLE_LINTING)
-  # Sources are identical to the loadable target, so running sanitizers on both would duplicate work.
   find_program(CLANG_TIDY_EXE NAMES clang-tidy REQUIRED)
   set(CLANG_TIDY_CMD ${CLANG_TIDY_EXE} --header-filter=^${CMAKE_CURRENT_SOURCE_DIR}/)
   if(APPLE)
