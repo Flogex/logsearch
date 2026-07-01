@@ -24,10 +24,13 @@ rebuild preset="release":
     rm -f {{build_dir}}/{{preset}}/CMakeCache.txt
     @just build {{preset}}
 
-# Run C++ unit tests for the given preset (release/debug/reldebinfo).
+# Run C++ unit tests for the given preset (release/debug/reldebinfo). Trailing args are forwarded to the Catch2
+# binary: a tag like '[inverted_index]', a test-name pattern, or flags like -s. Example: `just test release "[bug]"`.
 [group("test")]
-test preset="release": (build preset)
-    {{build_dir}}/{{preset}}/test/unittests
+test preset="release" *args: (build preset)
+    #!/usr/bin/env bash
+    set -euf -o pipefail
+    {{build_dir}}/{{preset}}/test/unittests {{args}}
 
 # Run SQLLogicTests for the logsearch extension.
 [group("test")]
