@@ -13,11 +13,12 @@
 
 namespace logsearch::inverted_index {
 
-//! In-memory inverted index for a single, not-yet-sealed partition (< 1 row group). Maps each term to an append-only,
-//! deduplicated, ascending postings list of row IDs.
-class InvertedIndex {
+//! In-memory inverted index for a single, not-yet-sealed partition (< 1 row group). Maps each term to an
+//! append-only, deduplicated, ascending postings list of row IDs. Sealed into an immutable SSTable once the partition
+//! is full.
+class Memtable {
 public:
-    explicit InvertedIndex(duckdb::Allocator& allocator);
+    explicit Memtable(duckdb::Allocator& allocator);
 
     //! Append `row_id` to `term`'s postings list. Row IDs must arrive non-decreasing; a row ID equal to the term's
     //! current last entry is dropped (a term repeated within one row).

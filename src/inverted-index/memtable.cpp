@@ -1,8 +1,8 @@
 #ifndef INVERTED_INDEX_UNITY_BUILD
-#error "inverted_index.cpp must be compiled as part of the Inverted-Index unity build"
+#error "memtable.cpp must be compiled as part of the Inverted-Index unity build"
 #endif
 
-#include "inverted_index.hpp"
+#include "memtable.hpp"
 
 #include "postings_list.hpp"
 
@@ -16,11 +16,11 @@
 
 namespace logsearch::inverted_index {
 
-InvertedIndex::InvertedIndex(duckdb::Allocator& allocator) : arena_(allocator) {
+Memtable::Memtable(duckdb::Allocator& allocator) : arena_(allocator) {
     dictionary_.reserve(EXPECTED_NUM_TERMS);
 }
 
-void InvertedIndex::Insert(const std::string_view term, const duckdb::row_t row_id) {
+void Memtable::Insert(const std::string_view term, const duckdb::row_t row_id) {
     // try_emplace hashes the term only ones, compared to find + conditional emplace.
     // Constructs an empty PostingsList if the term is not found.
     // TODO: Avoid this string allocation by either taking a std::string&& r-value or enabling transparent lookup.
@@ -73,7 +73,7 @@ void InvertedIndex::Insert(const std::string_view term, const duckdb::row_t row_
     D_ASSERT(postings.size <= DEFAULT_ROW_GROUP_SIZE);
 }
 
-std::vector<duckdb::row_t> InvertedIndex::Lookup(const std::string_view term) const {
+std::vector<duckdb::row_t> Memtable::Lookup(const std::string_view term) const {
     std::vector<duckdb::row_t> result;
 
     // TODO: Avoid string allocation
@@ -108,7 +108,7 @@ std::vector<duckdb::row_t> InvertedIndex::Lookup(const std::string_view term) co
     return result;
 }
 
-std::size_t InvertedIndex::DictionarySize() const {
+std::size_t Memtable::DictionarySize() const {
     return dictionary_.size();
 }
 

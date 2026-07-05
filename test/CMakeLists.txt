@@ -18,7 +18,7 @@ add_executable(
   analyzer/pipeline.test.cpp
   analyzer/stopword_filter.test.cpp
   analyzer/tokenizer.test.cpp
-  inverted-index/inverted_index.test.cpp
+  inverted-index/memtable.test.cpp
 )
 
 target_include_directories(unittests PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/test)

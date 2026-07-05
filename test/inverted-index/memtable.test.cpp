@@ -1,4 +1,4 @@
-#include "inverted-index/inverted_index.hpp"
+#include "inverted-index/memtable.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_vector.hpp>
@@ -7,7 +7,7 @@
 #include <vector>
 
 using Catch::Matchers::Equals;
-using logsearch::inverted_index::InvertedIndex;
+using logsearch::inverted_index::Memtable;
 
 namespace {
 class AllocatorFixture {
@@ -17,13 +17,13 @@ public:
 };
 } // namespace
 
-TEST_CASE_METHOD(AllocatorFixture, "The dictionary of a new InvertedIndex is empty", "[inverted_index][dictionary]") {
-    const InvertedIndex index{allocator};
+TEST_CASE_METHOD(AllocatorFixture, "The dictionary of a new Memtable is empty", "[inverted_index]") {
+    const Memtable index{allocator};
     CHECK(index.DictionarySize() == 0);
 }
 
 TEST_CASE_METHOD(AllocatorFixture, "Lookup on an absent term returns an empty list", "[inverted_index]") {
-    InvertedIndex index{allocator};
+    Memtable index{allocator};
     index.Insert("present", 1);
     CHECK(index.Lookup("absent").empty());
 }
@@ -31,7 +31,7 @@ TEST_CASE_METHOD(AllocatorFixture, "Lookup on an absent term returns an empty li
 TEST_CASE_METHOD(AllocatorFixture,
                  "After inserting a single term from a single document, the Lookup returns that document's row ID",
                  "[inverted_index]") {
-    InvertedIndex index{allocator};
+    Memtable index{allocator};
     index.Insert("term", 1);
 
     CHECK(index.DictionarySize() == 1);
@@ -41,7 +41,7 @@ TEST_CASE_METHOD(AllocatorFixture,
 TEST_CASE_METHOD(AllocatorFixture,
                  "After inserting a single term from a three documents, the Lookup returns that documents' row IDs",
                  "[inverted_index]") {
-    InvertedIndex index{allocator};
+    Memtable index{allocator};
     index.Insert("term", 1);
     index.Insert("term", 2);
     index.Insert("term", 3);
@@ -53,7 +53,7 @@ TEST_CASE_METHOD(AllocatorFixture,
 TEST_CASE_METHOD(AllocatorFixture,
                  "After inserting multiple unique terms, the Lookup returns the matching row ID for each",
                  "[inverted_index]") {
-    InvertedIndex index{allocator};
+    Memtable index{allocator};
 
     index.Insert("term1", 1);
     index.Insert("term2", 2);
@@ -68,7 +68,7 @@ TEST_CASE_METHOD(AllocatorFixture,
 TEST_CASE_METHOD(AllocatorFixture,
                  "After inserting a term three times from a single documents, the Lookup returns only one row ID",
                  "[inverted_index]") {
-    InvertedIndex index{allocator};
+    Memtable index{allocator};
     // The analyzer emits a term once per occurrence, so a term repeated within one row produces the same row ID twice.
     index.Insert("term", 1);
     index.Insert("term", 1);
@@ -79,7 +79,7 @@ TEST_CASE_METHOD(AllocatorFixture,
 }
 
 TEST_CASE_METHOD(AllocatorFixture, "The dictionary can store long terms", "[inverted_index]") {
-    InvertedIndex index{allocator};
+    Memtable index{allocator};
     index.Insert("donaudampfschifffahrtsgesellschaftskapitaen", 1);
 
     CHECK(index.DictionarySize() == 1);
@@ -87,7 +87,7 @@ TEST_CASE_METHOD(AllocatorFixture, "The dictionary can store long terms", "[inve
 }
 
 TEST_CASE_METHOD(AllocatorFixture, "Inserting 122880 row IDs into a single postings list works", "[inverted_index]") {
-    InvertedIndex index{allocator};
+    Memtable index{allocator};
 
     constexpr duckdb::row_t ROW_GROUP_SIZE = 122880;
     for (duckdb::row_t row_id = 0; row_id < ROW_GROUP_SIZE; row_id++) {
@@ -99,7 +99,7 @@ TEST_CASE_METHOD(AllocatorFixture, "Inserting 122880 row IDs into a single posti
 }
 
 TEST_CASE_METHOD(AllocatorFixture, "Inserting one million terms into the dictionary works", "[inverted_index]") {
-    InvertedIndex index{allocator};
+    Memtable index{allocator};
 
     constexpr duckdb::row_t NUM_DOCUMENTS = 1000;
     constexpr size_t NUM_TERMS_PER_DOCUMENT = 1000;
