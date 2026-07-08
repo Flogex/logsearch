@@ -36,6 +36,18 @@
       }
     },
     {
+      "name": "coverage",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/coverage",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "ENABLE_COVERAGE": "ON",
+        "ENABLE_SANITIZER": "OFF"
+      }
+    },
+    {
       "name": "release-ci",
       "inherits": "release",
       "cacheVariables": {
@@ -55,6 +67,10 @@
     {
       "configurePreset": "reldebinfo",
       "name": "reldebinfo"
+    },
+    {
+      "configurePreset": "coverage",
+      "name": "coverage"
     },
     {
       "configurePreset": "release-ci",

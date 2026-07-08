@@ -86,6 +86,16 @@ if(SANITIZER_FLAGS)
   endforeach()
 endif()
 
+if(ENABLE_COVERAGE)
+  foreach(target IN ITEMS ${EXTENSION_NAME} ${LOADABLE_EXTENSION_NAME})
+    # Compile flags are PRIVATE so DuckDB itself stays uninstrumented; we only measure
+    # coverage of extension code. Link flags are PUBLIC so any binary that links the
+    # extension (unittests, DuckDB's unittest) pulls in the profiling runtime.
+    target_compile_options(${target} PRIVATE -fprofile-instr-generate -fcoverage-mapping)
+    target_link_options(${target} PUBLIC -fprofile-instr-generate)
+  endforeach()
+endif()
+
 if(ENABLE_LINTING)
   find_program(CLANG_TIDY_EXE NAMES clang-tidy REQUIRED)
   set(CLANG_TIDY_CMD ${CLANG_TIDY_EXE} --header-filter=^${CMAKE_CURRENT_SOURCE_DIR}/)

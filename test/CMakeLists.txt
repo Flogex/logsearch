@@ -37,6 +37,14 @@ target_link_libraries(
     Catch2::Catch2WithMain
 )
 
+if(ENABLE_COVERAGE)
+  # The test TUs instantiate header-only extension code (templates, inline functions),
+  # so they must be instrumented too or that code would be missing from the report.
+  # Test sources themselves are excluded at report time (llvm-cov is restricted to src/).
+  target_compile_options(unittests PRIVATE -fprofile-instr-generate -fcoverage-mapping)
+  target_link_options(unittests PRIVATE -fprofile-instr-generate)
+endif()
+
 list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
 include(CTest)
 include(Catch)

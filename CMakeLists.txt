@@ -9,6 +9,21 @@ set(LOADABLE_EXTENSION_NAME logsearch_loadable_extension)
 option(ENABLE_LINTING "Run clang-tidy and cppcheck on extension targets during build" OFF)
 option(ENABLE_ASAN "Build extension targets with AddressSanitizer" OFF)
 option(ENABLE_UBSAN "Build extension targets with UndefinedBehaviorSanitizer" OFF)
+option(
+  ENABLE_COVERAGE
+  "Build extension and unit tests with source-based coverage instrumentation"
+  OFF
+)
+
+# Source-based coverage (-fprofile-instr-generate -fcoverage-mapping) is a Clang feature;
+# GCC only offers gcov-style coverage, which uses different flags and tooling.
+if(ENABLE_COVERAGE AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  message(
+    FATAL_ERROR
+    "ENABLE_COVERAGE requires Clang (source-based coverage), but the compiler is ${CMAKE_CXX_COMPILER_ID}. "
+    "Use the 'coverage' CMake preset or set CMAKE_C_COMPILER/CMAKE_CXX_COMPILER to clang/clang++."
+  )
+endif()
 
 # We set DUCKDB_EXTENSION_CONFIGS before adding DuckDB as subdirectory.
 # DuckDB reads extension_config.cmake and calls add_subdirectory again to load this directory.

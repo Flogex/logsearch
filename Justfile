@@ -37,6 +37,37 @@ test preset="release" *args: (build preset)
 test-sqllogic: (build "release")
     {{build_dir}}/release/_deps/duckdb-build/test/unittest "*logsearch/test/sql/*"
 
+# Build with Clang source-based coverage, run the unit tests, and report line/branch coverage of src/.
+# Prints a summary table, writes an HTML report and an LCOV trace to build/coverage/coverage-report/.
+# Trailing args are forwarded to the Catch2 binary, e.g. `just coverage '[analyzer]'`.
+[group("test")]
+coverage *args: (build "coverage")
+    #!/usr/bin/env bash
+    # No -f here (unlike the test recipe): the profraw glob below needs pathname expansion.
+    set -eu -o pipefail
+    bin={{build_dir}}/coverage/test/unittests
+    out={{build_dir}}/coverage/coverage-report
+    rm -rf "$out"
+    mkdir -p "$out"
+    # llvm-profdata/llvm-cov must be at least as new as the clang that produced the profile.
+    # The coverage preset uses the system clang, so use the matching toolchain tools.
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        llvm() { xcrun "$@"; }
+    else
+        llvm() { "$@"; }
+    fi
+    LLVM_PROFILE_FILE="$out/unittests-%p.profraw" "$bin" {{args}}
+    llvm llvm-profdata merge -sparse "$out"/*.profraw -o "$out/unittests.profdata"
+    # Restricting to src/ drops DuckDB, Catch2, and the test sources from the report.
+    llvm llvm-cov report "$bin" -instr-profile="$out/unittests.profdata" {{proj_dir}}/src
+    llvm llvm-cov show "$bin" -instr-profile="$out/unittests.profdata" \
+        -format=html -output-dir="$out/html" -show-branches=count {{proj_dir}}/src
+    llvm llvm-cov export "$bin" -instr-profile="$out/unittests.profdata" \
+        -format=lcov {{proj_dir}}/src > "$out/coverage.lcov"
+    echo
+    echo "HTML report: $out/html/index.html"
+    echo "LCOV trace:  $out/coverage.lcov"
+
 # Run clang-tidy on extension sources without building.
 [group("lint")]
 clang-tidy preset="release": (configure preset)
