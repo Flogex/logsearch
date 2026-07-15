@@ -1,0 +1,29 @@
+# clangd configuration so the editor analyzes our sources the way the build actually compiles them.
+# Two project-specific issues make this necessary; without it clangd reports spurious errors
+# (unresolved <duckdb/...> includes, "no member ... in duckdb::Storage", #error on our own .cpp files).
+#
+# 1. compile_commands.json lives in build/release/, which clangd does NOT find on its own. By default it
+#    searches the file's directory, its parents, and a `build/` subdirectory of each -- but not the nested
+#    `build/release/`. With no compilation database clangd falls back to bare flags (no -I/-isystem), so
+#    every angled duckdb include and every src-relative include ("storage/multi_block_writer.hpp") fails.
+#    CompilationDatabase (relative to this .clangd file) points clangd at the database, so each file inherits
+#    the real -I / -isystem / -D flags the build uses.
+#
+# 2. Our per-component translation units (ss_table.cpp, ss_table_builder.cpp, memtable.cpp, ...) are unity-
+#    build fragments: inverted_index_ub.cpp does `#define INVERTED_INDEX_UNITY_BUILD` and then #includes
+#    them, and each fragment starts with `#ifndef INVERTED_INDEX_UNITY_BUILD / #error`. Only the _ub.cpp is
+#    in compile_commands.json; clangd analyzes each fragment standalone by inferring flags from that sibling
+#    command -- but the macro is a *source* #define, not a compile flag, so it is absent and the #error
+#    fires (which also aborts before the includes, cascading into "undeclared identifier" noise). Defining
+#    it here lets clangd parse the fragments as the unity build does. The value is left empty to match the
+#    bare `#define` in inverted_index_ub.cpp, so the two definitions are identical and clangd does not warn
+#    about a macro redefinition when it indexes that file.
+#
+# Note: this pins indexing to the release configuration. Debug-only blocks guarded by
+# `#if defined(D_ASSERT_IS_ENABLED) || !defined(NDEBUG)` will show as inactive in the editor; that is a
+# cosmetic indexing choice, not a build effect. Point CompilationDatabase at build/debug if you'd rather
+# see those active.
+CompileFlags:
+  CompilationDatabase: build/release
+  Add:
+    - -DINVERTED_INDEX_UNITY_BUILD=

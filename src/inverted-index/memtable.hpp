@@ -11,7 +11,13 @@
 #include <unordered_map>
 #include <vector>
 
+namespace duckdb {
+class BufferManager;
+} // namespace duckdb
+
 namespace logsearch::inverted_index {
+
+class SSTable;
 
 //! In-memory inverted index for a single, not-yet-sealed partition (< 1 row group). Maps each term to an
 //! append-only, deduplicated, ascending postings list of row IDs. Sealed into an immutable SSTable once the partition
@@ -19,6 +25,15 @@ namespace logsearch::inverted_index {
 class Memtable {
 public:
     explicit Memtable(duckdb::Allocator& allocator);
+
+    // Non-copyable: dictionary_ holds raw PostingsSegment* into arena_. A memberwise
+    // copy would leave those pointers aliasing/dangling into the source arena.
+    // Non-movable too: ArenaAllocator is not movable (holds a backing-allocator reference).
+    Memtable(const Memtable&) = delete;
+    Memtable& operator=(const Memtable&) = delete;
+    Memtable(Memtable&&) = delete;
+    Memtable& operator=(Memtable&&) = delete;
+    ~Memtable() = default;
 
     //! Append `row_id` to `term`'s postings list. Row IDs must arrive non-decreasing; a row ID equal to the term's
     //! current last entry is dropped (a term repeated within one row).
@@ -30,6 +45,13 @@ public:
 
     //! Returns the number of terms in the dictionary of this index.
     [[nodiscard]] std::size_t DictionarySize() const;
+
+    //! Seal this (full) memtable into an immutable SSTable: materialize every term's postings and hand them to
+    //! SSTableBuilder::Build (which sorts + serializes into `buffer_manager`'s blocks). Does not modify the memtable;
+    //! call Reset() afterwards to reuse it for the next partition.
+    [[nodiscard]] SSTable Seal(duckdb::BufferManager& buffer_manager) const;
+
+    void Reset();
 
 private:
     //! Initial bucket reservation.

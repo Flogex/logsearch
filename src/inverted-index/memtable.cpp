@@ -5,16 +5,47 @@
 #include "memtable.hpp"
 
 #include "postings_list.hpp"
+#include "ss_table.hpp"
+#include "ss_table_builder.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <duckdb/common/assert.hpp>
 #include <duckdb/common/typedefs.hpp>
 #include <duckdb/storage/storage_info.hpp>
+#include <string>
 #include <string_view>
 #include <vector>
 
 namespace logsearch::inverted_index {
+
+namespace {
+//! Walk a postings segment chain into an ascending vector of row IDs. Shared read path for Lookup and Seal.
+std::vector<duckdb::row_t> CollectPostings(const PostingsList& postings) {
+    postings.Verify();
+
+    std::vector<duckdb::row_t> result;
+    result.reserve(postings.size);
+    std::uint32_t remaining = postings.size;
+    for (const PostingsSegment* segment = postings.head; segment != nullptr; segment = segment->next) {
+        // nullptr passed to prefetch on the last iteration is a harmless no-op.
+        __builtin_prefetch(segment->next, /*rw=*/0, /*locality=*/0);
+        // All segments but the last one are completely filled.
+        const std::uint32_t count = remaining < PostingsSegment::Capacity() ? remaining : PostingsSegment::Capacity();
+        result.insert(result.end(), segment->entries.data(), segment->entries.data() + count);
+        remaining -= count;
+    }
+    D_ASSERT(remaining == 0);
+
+#if defined(D_ASSERT_IS_ENABLED) || !defined(NDEBUG)
+    // Assert ascending row ID order.
+    for (std::size_t i = 1; i < result.size(); i++) {
+        D_ASSERT(result[i - 1] < result[i]);
+    }
+#endif
+    return result;
+}
+} // namespace
 
 Memtable::Memtable(duckdb::Allocator& allocator) : arena_(allocator) {
     dictionary_.reserve(EXPECTED_NUM_TERMS);
@@ -74,42 +105,38 @@ void Memtable::Insert(const std::string_view term, const duckdb::row_t row_id) {
 }
 
 std::vector<duckdb::row_t> Memtable::Lookup(const std::string_view term) const {
-    std::vector<duckdb::row_t> result;
-
     // TODO: Avoid string allocation
     const auto it = dictionary_.find(std::string(term));
     if (it == dictionary_.end()) {
-        return result;
+        return {};
     }
-
-    const PostingsList& postings = it->second;
-    postings.Verify();
-
-    result.reserve(postings.size);
-    std::uint32_t remaining = postings.size;
-    for (const PostingsSegment* segment = postings.head; segment != nullptr; segment = segment->next) {
-        // nullptr passed to prefetch on last iteration is a harmless no-op
-        __builtin_prefetch(segment->next, /*rw=*/0, /*locality=*/0);
-
-        // All segments but the last one are completely filled
-        const std::uint32_t count = remaining < PostingsSegment::Capacity() ? remaining : PostingsSegment::Capacity();
-        result.insert(result.end(), segment->entries.data(), segment->entries.data() + count);
-        remaining -= count;
-    }
-    D_ASSERT(remaining == 0);
-
-#if defined(D_ASSERT_IS_ENABLED) || !defined(NDEBUG)
-    // Assert ascending row ID order
-    for (size_t i = 1; i < result.size(); i++) {
-        D_ASSERT(result[i - 1] < result[i]);
-    }
-#endif
-
-    return result;
+    return CollectPostings(it->second);
 }
 
 std::size_t Memtable::DictionarySize() const {
     return dictionary_.size();
+}
+
+SSTable Memtable::Seal(duckdb::BufferManager& buffer_manager) const {
+    // Materialize each term's postings chain into a vector. The TermPostings views point at these vectors and at the
+    // dictionary keys, all of which outlive the SSTableBuilder::Build call. Reserve so `postings_storage` never
+    // reallocates
+    // -- otherwise the pointers we take into it would dangle.
+    std::vector<std::vector<duckdb::row_t>> postings_storage;
+    postings_storage.reserve(dictionary_.size());
+    std::vector<TermPostings> terms;
+    terms.reserve(dictionary_.size());
+    for (const auto& [term, postings] : dictionary_) {
+        postings_storage.push_back(CollectPostings(postings));
+        terms.push_back({term, &postings_storage.back()});
+    }
+    return SSTableBuilder::Build(buffer_manager, std::move(terms));
+}
+
+void Memtable::Reset() {
+    // Note: clear() doesn't change the capacity of the dictionary
+    dictionary_.clear();
+    arena_.Reset();
 }
 
 } // namespace logsearch::inverted_index
