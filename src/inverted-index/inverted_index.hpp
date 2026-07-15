@@ -1,7 +1,6 @@
 #pragma once
 
 #include "memtable.hpp"
-#include "ss_table.hpp"
 
 #include <cstddef>
 #include <duckdb/common/typedefs.hpp>
@@ -16,6 +15,8 @@ class BufferManager;
 
 namespace logsearch::inverted_index {
 
+class SSTable;
+
 //! The inverted index for one indexed column: an active in-memory Memtable holding the current partition (row
 //! group) plus the immutable SSTables of the already-sealed partitions. Insert appends to the memtable and, when a
 //! row ID crosses into a new row group, seals the memtable into an SSTable and starts a fresh one. Lookup merges the
@@ -26,6 +27,15 @@ public:
     //! `row_group_size` is the partition size; it must match the table's row group size (see RowGroupOf).
     explicit InvertedIndex(duckdb::BufferManager& buffer_manager,
                            duckdb::idx_t row_group_size = DEFAULT_ROW_GROUP_SIZE);
+
+    //! Defined out of line so the std::vector<SSTable> member is destroyed where SSTable is a complete type.
+    ~InvertedIndex();
+
+    // Non-copyable and non-movable: owns a Memtable (arena) and holds a BufferManager reference.
+    InvertedIndex(const InvertedIndex&) = delete;
+    InvertedIndex& operator=(const InvertedIndex&) = delete;
+    InvertedIndex(InvertedIndex&&) = delete;
+    InvertedIndex& operator=(InvertedIndex&&) = delete;
 
     //! Append `row_id` to `term`'s postings. Row IDs must arrive non-decreasing. When `row_id` is the first of a new
     //! row group, the current memtable is sealed into an SSTable and a fresh memtable starts.

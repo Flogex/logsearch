@@ -4,6 +4,8 @@
 
 #include "inverted_index.hpp"
 
+#include "ss_table.hpp"
+
 #include <cstddef>
 #include <duckdb/common/assert.hpp>
 #include <duckdb/storage/buffer_manager.hpp>
@@ -16,6 +18,8 @@ InvertedIndex::InvertedIndex(duckdb::BufferManager& buffer_manager, const duckdb
     : bm_(buffer_manager), memtable_(buffer_manager.GetBufferAllocator()), row_group_size_(row_group_size) {
     D_ASSERT(row_group_size_ > 0);
 }
+
+InvertedIndex::~InvertedIndex() = default;
 
 void InvertedIndex::Insert(const std::string_view term, const duckdb::row_t row_id) {
     if (is_new_rowgroup(row_id)) {
