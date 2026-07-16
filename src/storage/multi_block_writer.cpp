@@ -23,7 +23,7 @@ void MultiBlockWriter::WriteData(duckdb::const_data_ptr_t buffer, duckdb::idx_t 
     while (write_size > 0) {
         EnsureSpace();
         const duckdb::idx_t chunk = std::min<duckdb::idx_t>(write_size, block_size_ - current_offset_in_block_);
-        std::memcpy(current_block_.Ptr() + current_offset_in_block_, buffer, chunk);
+        std::memcpy(current_block_.GetDataMutable() + current_offset_in_block_, buffer, chunk);
         buffer += chunk;
         current_offset_in_block_ += chunk;
         D_ASSERT(current_offset_in_block_ <= block_size_);

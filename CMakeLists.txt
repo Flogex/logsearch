@@ -48,7 +48,7 @@ if(PROJECT_IS_TOP_LEVEL)
     duckdb
     GIT_REPOSITORY https://github.com/duckdb/duckdb.git
     GIT_TAG
-      14eca11bd9d4a0de2ea0f078be588a9c1c5b279c # v1.5.3
+      7c0fa265df67f4d8ed5cc4f94910c5677d127afd # main branch as of 2026-07-15
     GIT_SHALLOW TRUE
     SYSTEM
   )

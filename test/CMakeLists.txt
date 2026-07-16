@@ -25,7 +25,12 @@ add_executable(
 )
 
 target_include_directories(unittests PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/test)
-target_include_directories(unittests PRIVATE SYSTEM ${duckdb_SOURCE_DIR}/src/include)
+# fmt is needed because duckdb/function/function.hpp includes fmt/core.h.
+target_include_directories(
+  unittests
+  SYSTEM
+  PRIVATE ${duckdb_SOURCE_DIR}/src/include ${duckdb_SOURCE_DIR}/third_party/fmt/include
+)
 
 target_link_libraries(
   unittests
