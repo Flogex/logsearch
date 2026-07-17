@@ -3,6 +3,7 @@
 #include "memtable.hpp"
 
 #include <cstddef>
+#include <duckdb/common/query_context.hpp>
 #include <duckdb/common/typedefs.hpp>
 #include <duckdb/storage/storage_info.hpp>
 #include <optional>
@@ -39,13 +40,16 @@ public:
 
     //! Append `row_id` to `term`'s postings. Row IDs must arrive non-decreasing. When `row_id` is the first of a new
     //! row group, the current memtable is sealed into an SSTable and a fresh memtable starts.
-    void Insert(std::string_view term, duckdb::row_t row_id);
+    //! `context` attributes the seal's block allocations to the running query; it is not stored.
+    void Insert(std::string_view term, duckdb::row_t row_id, duckdb::QueryContext context = duckdb::QueryContext());
 
     //! Return every row ID whose document contains `term`, in ascending order. Sealed partitions cover disjoint,
     //! ascending row-ID ranges (oldest first) and the memtable holds the newest range, so merging is a plain
     //! concatenation -- no dedup needed. The result is a set of CANDIDATE row IDs; row visibility (deletes/updates)
     //! must be applied by the caller.
-    [[nodiscard]] std::vector<duckdb::row_t> Lookup(std::string_view term) const;
+    //! `context` attributes the I/O of pinning evicted SSTable blocks to the running query; it is not stored.
+    [[nodiscard]] std::vector<duckdb::row_t> Lookup(std::string_view term,
+                                                    duckdb::QueryContext context = duckdb::QueryContext()) const;
 
     //! Number of sealed partitions (SSTables). The active (unsealed) memtable is not counted.
     [[nodiscard]] std::size_t NumSealedPartitions() const;

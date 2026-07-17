@@ -11,6 +11,7 @@
 
 namespace duckdb {
 class BufferManager;
+class QueryContext;
 } // namespace duckdb
 
 namespace logsearch::inverted_index {
@@ -86,7 +87,8 @@ public:
     ~SSTable() = default;
 
     //! Return `term`'s postings in ascending row-ID order, or an empty vector if the term is absent.
-    [[nodiscard]] std::vector<duckdb::row_t> Lookup(std::string_view search_term) const;
+    //! `context` attributes the I/O of pinning evicted blocks to the running query.
+    [[nodiscard]] std::vector<duckdb::row_t> Lookup(std::string_view search_term, duckdb::QueryContext context) const;
 
     //! Smallest row ID in this SSTable (inclusive). SSTables are never empty, so this is always a real row ID.
     [[nodiscard]] duckdb::row_t MinRowId() const {
@@ -116,6 +118,7 @@ private:
     //! into a different block.
     class PinnedBlockCache;
 
+    //! `context` is only used for the constructor-time Verify; it is not stored (the SSTable outlives the query).
     SSTable(duckdb::BufferManager& buffer_manager, std::vector<duckdb::shared_ptr<duckdb::BlockHandle>>&& blocks,
             duckdb::idx_t block_size, const SSTableHeader& header);
 

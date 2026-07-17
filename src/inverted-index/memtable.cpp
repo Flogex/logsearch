@@ -117,7 +117,7 @@ std::size_t Memtable::DictionarySize() const {
     return dictionary_.size();
 }
 
-SSTable Memtable::Seal(duckdb::BufferManager& buffer_manager) const {
+SSTable Memtable::Seal(duckdb::BufferManager& buffer_manager, const duckdb::QueryContext context) const {
     // Materialize each term's postings chain into a vector. The TermPostings views point at these vectors and at the
     // dictionary keys, all of which outlive the SSTableBuilder::Build call. Reserve so `postings_storage` never
     // reallocates
@@ -130,7 +130,7 @@ SSTable Memtable::Seal(duckdb::BufferManager& buffer_manager) const {
         postings_storage.push_back(CollectPostings(postings));
         terms.push_back({term, &postings_storage.back()});
     }
-    return SSTableBuilder::Build(buffer_manager, std::move(terms));
+    return SSTableBuilder::Build(buffer_manager, std::move(terms), duckdb::optional_idx::Invalid(), context);
 }
 
 void Memtable::Reset() {

@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <duckdb/common/allocator.hpp>
+#include <duckdb/common/query_context.hpp>
 #include <duckdb/common/typedefs.hpp>
 #include <duckdb/storage/arena_allocator.hpp>
 #include <string>
@@ -49,7 +50,9 @@ public:
     //! Seal this (full) memtable into an immutable SSTable: materialize every term's postings and hand them to
     //! SSTableBuilder::Build (which sorts + serializes into `buffer_manager`'s blocks). Does not modify the memtable;
     //! call Reset() afterwards to reuse it for the next partition.
-    [[nodiscard]] SSTable Seal(duckdb::BufferManager& buffer_manager) const;
+    //! `context` attributes the SSTable's block allocations to the running query.
+    [[nodiscard]] SSTable Seal(duckdb::BufferManager& buffer_manager,
+                               duckdb::QueryContext context = duckdb::QueryContext()) const;
 
     void Reset();
 

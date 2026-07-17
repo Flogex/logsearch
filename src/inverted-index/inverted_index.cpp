@@ -21,19 +21,21 @@ InvertedIndex::InvertedIndex(duckdb::BufferManager& buffer_manager, const duckdb
 
 InvertedIndex::~InvertedIndex() = default;
 
-void InvertedIndex::Insert(const std::string_view term, const duckdb::row_t row_id) {
+void InvertedIndex::Insert(const std::string_view term, const duckdb::row_t row_id,
+                           const duckdb::QueryContext context) {
     if (is_new_rowgroup(row_id)) {
-        partitions_.push_back(memtable_.Seal(bm_));
+        partitions_.push_back(memtable_.Seal(bm_, context));
         memtable_.Reset();
     }
     current_rowgroup_ = RowGroupOf(row_id);
     memtable_.Insert(term, row_id);
 }
 
-std::vector<duckdb::row_t> InvertedIndex::Lookup(const std::string_view term) const {
+std::vector<duckdb::row_t> InvertedIndex::Lookup(const std::string_view term,
+                                                 const duckdb::QueryContext context) const {
     std::vector<duckdb::row_t> result;
     for (const SSTable& partition : partitions_) {
-        const std::vector<duckdb::row_t> hits = partition.Lookup(term);
+        const std::vector<duckdb::row_t> hits = partition.Lookup(term, context);
         result.insert(result.end(), hits.begin(), hits.end());
     }
     const std::vector<duckdb::row_t> memtable_hits = memtable_.Lookup(term);

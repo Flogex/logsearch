@@ -1,6 +1,7 @@
 #pragma once
 
 #include <duckdb/common/optional_idx.hpp>
+#include <duckdb/common/query_context.hpp>
 #include <duckdb/common/typedefs.hpp>
 #include <string_view>
 #include <vector>
@@ -25,9 +26,11 @@ class SSTableBuilder {
 public:
     //! Build an SSTable from per-term postings of the memtable.
     //! The final SSTable is backed by buffer-managed blocks of `block_size` bytes.
+    //! `context` attributes the build's block allocations (and possible spill I/O) to the running query.
     // The blocks are allocated with can_destroy=false, so they survive eviction by spilling to a temp file.
     // Later we need to add real persistence.
     static SSTable Build(duckdb::BufferManager& buffer_manager, std::vector<TermPostings>&& terms,
-                         duckdb::optional_idx block_size_overwrite = duckdb::optional_idx::Invalid());
+                         duckdb::optional_idx block_size_overwrite = duckdb::optional_idx::Invalid(),
+                         duckdb::QueryContext context = duckdb::QueryContext());
 };
 } // namespace logsearch::inverted_index

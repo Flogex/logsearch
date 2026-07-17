@@ -27,7 +27,8 @@ SSTable::SSTable(duckdb::BufferManager& buffer_manager, std::vector<duckdb::shar
 
 class SSTable::PinnedBlockCache {
 public:
-    explicit PinnedBlockCache(const SSTable& table) : table_(table) {
+    explicit PinnedBlockCache(const SSTable& table, const duckdb::QueryContext context)
+        : table_(table), context_(context) {
     }
 
     //! Returns pointer to logical offset, ensuring that the block that contains this byte is pinned.
@@ -40,7 +41,7 @@ public:
             // Pin takes a non-const shared_ptr&, and blocks_ is const through `table_`, so copy to a local lvalue.
             auto handle = table_.blocks_[block_index];
             // Reassigning `pinned_block_` drops the previous pin. Hence, at most one block stays pinned at a time.
-            pinned_block_ = table_.bm_.Pin(handle);
+            pinned_block_ = table_.bm_.Pin(context_, handle);
             pinned_block_index_ = block_index;
         }
         return pinned_block_.Ptr() + block_offset;
@@ -61,6 +62,7 @@ public:
 
 private:
     const SSTable& table_;
+    duckdb::QueryContext context_;
     duckdb::idx_t pinned_block_index_ = duckdb::DConstants::INVALID_INDEX;
     duckdb::BufferHandle pinned_block_;
 };
@@ -103,10 +105,11 @@ int SSTable::CompareTermAt(PinnedBlockCache& block_reader, std::uint64_t offset,
 }
 
 // TODO: Maybe return std::optional
-std::vector<duckdb::row_t> SSTable::Lookup(const std::string_view search_term) const {
+std::vector<duckdb::row_t> SSTable::Lookup(const std::string_view search_term,
+                                           const duckdb::QueryContext context) const {
     // Two readers so recently used dictionary and string pool blocks stay pinned.
-    PinnedBlockCache dict_reader(*this);
-    PinnedBlockCache term_reader(*this);
+    PinnedBlockCache dict_reader(*this, context);
+    PinnedBlockCache term_reader(*this, context);
     // Binary search the sorted, fixed-size dictionary entries.
     std::uint64_t low = 0;
     std::uint64_t high = header_.num_terms;
@@ -150,7 +153,7 @@ void SSTable::Verify() const {
     D_ASSERT(header_.postings_offset <= header_.total_size);
     D_ASSERT(header_.num_terms > 0);
 
-    PinnedBlockCache block_reader(*this);
+    PinnedBlockCache block_reader(*this, duckdb::QueryContext());
     const std::uint64_t pool_capacity = header_.postings_offset - header_.strings_offset;
     std::string prev_term;
     for (std::uint64_t i = 0; i < header_.num_terms; i++) {
