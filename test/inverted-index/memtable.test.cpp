@@ -10,8 +10,7 @@ using Catch::Matchers::Equals;
 using logsearch::inverted_index::Memtable;
 
 namespace {
-class AllocatorFixture {
-public:
+struct AllocatorFixture {
     // No DatabaseInstance in unit tests, so use the global default allocator
     duckdb::Allocator& allocator = duckdb::Allocator::DefaultAllocator();
 };

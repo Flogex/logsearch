@@ -1,0 +1,9 @@
+# clangd configuration so the editor analyzes our sources the way the build actually compiles them.
+# 1. Tells clangd where to find the compilation database. Fixes unresolved <duckdb/...> includes.
+# 2. Adds the *_UNITY_BUILD flags to prevent clangd from seeing errors when analyzing these single files.
+
+CompileFlags:
+  CompilationDatabase: build/release
+  Add:
+    - -DINVERTED_INDEX_UNITY_BUILD=
+    - -DANALYZER_UNITY_BUILD=

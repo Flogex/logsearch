@@ -3,6 +3,7 @@ set(
   analyzer/analyzer_ub.cpp
   duckdb-index/logsearch_index.cpp
   inverted-index/inverted_index_ub.cpp
+  storage/multi_block_writer.cpp
   logsearch_extension.cpp
 )
 

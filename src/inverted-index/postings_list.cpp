@@ -53,6 +53,7 @@ void PostingsList::Verify() const {
             const duckdb::row_t row_id = segment->entries[i];
             // A full segment has no never-written holes
             D_ASSERT(row_id != POSTINGS_UNWRITTEN_SENTINEL);
+            // We expect committed row IDs, hence the upper bound is MAX_ROW_ID, not MAX_ROW_ID_LOCAL.
             D_ASSERT(row_id >= 0 && row_id <= duckdb::MAX_ROW_ID);
             D_ASSERT(prev_row_id < row_id);
             prev_row_id = row_id;

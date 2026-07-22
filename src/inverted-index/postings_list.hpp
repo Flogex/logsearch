@@ -17,7 +17,7 @@ static_assert((POSTINGS_SEGMENT_CAPACITY & (POSTINGS_SEGMENT_CAPACITY - 1)) == 0
 //! Default value for slot in PostingsSegment to indicate that it has not been written yet.
 constexpr duckdb::row_t POSTINGS_UNWRITTEN_SENTINEL = -1;
 
-//! A PostingsList of a memtable consists of multiple segments, each storing an ordered list of the row IDs of the
+//! A PostingsList of a Memtable consists of multiple segments, each storing an ordered list of the row IDs of the
 //! documents that contain the corresponding term.
 // The reason for using segments is to not have to reallocate a single growable array for each term.
 // Since we are using the duckdb::ArenaAllocator, this would leave the old allocations stranded in the arena.
@@ -48,7 +48,7 @@ struct PostingsList {
     // The tail pointer is used for appending to the PostingsLists.
     PostingsSegment* tail = nullptr;
     //! Total number of row IDs in this postings list. All segments but the tail are full.
-    // Maximum size is 122880 < 2^17 because we seal the memtable when one row group is full.
+    // Maximum size is 122880 < 2^17 because we seal the Memtable when one row group is full.
     std::uint32_t size = 0;
 
     //! Debug-only structural audit of the invariants
