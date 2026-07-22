@@ -11,6 +11,7 @@
 #include <duckdb/common/assert.hpp>
 #include <duckdb/common/constants.hpp>
 #include <duckdb/common/optional_idx.hpp>
+#include <duckdb/common/query_context.hpp>
 #include <duckdb/common/typedefs.hpp>
 #include <duckdb/storage/buffer_manager.hpp>
 #include <duckdb/storage/storage_info.hpp>
@@ -38,10 +39,11 @@ InvertedIndex::InvertedIndex(duckdb::BufferManager& buffer_manager, const duckdb
 // The destructors of std::vector<SSTable> and std::unique_ptr<Memtable> need the wrapped classes to be defined.
 InvertedIndex::~InvertedIndex() = default;
 
-void InvertedIndex::Insert(const std::string_view term, const duckdb::row_t row_id) {
+void InvertedIndex::Insert(const std::string_view term, const duckdb::row_t row_id,
+                           const duckdb::QueryContext context) {
     // TODO: Assert that row_id is non-decreasing globally. Memtable just checks within one partition.
     if (IsNewRowGroup(row_id)) {
-        partitions_.push_back(memtable_->Seal(bm_));
+        partitions_.push_back(memtable_->Seal(bm_, context));
         memtable_->Reset();
     }
     current_rowgroup_ = RowGroupOf(row_id);
@@ -50,10 +52,11 @@ void InvertedIndex::Insert(const std::string_view term, const duckdb::row_t row_
 
 // Sealed partitions cover disjoint, ascending row-ID ranges (oldest first) and the Memtable holds the newest range, so
 // merging is a plain concatenation without deduplication.
-std::vector<duckdb::row_t> InvertedIndex::Lookup(const std::string_view term) const {
+std::vector<duckdb::row_t> InvertedIndex::Lookup(const std::string_view term,
+                                                 const duckdb::QueryContext context) const {
     std::vector<duckdb::row_t> result;
     for (const SSTable& partition : partitions_) {
-        const std::vector<duckdb::row_t> hits = partition.Lookup(term);
+        const std::vector<duckdb::row_t> hits = partition.Lookup(term, context);
         result.insert(result.end(), hits.begin(), hits.end());
     }
     {

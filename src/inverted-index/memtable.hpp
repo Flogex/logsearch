@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <duckdb/common/allocator.hpp>
+#include <duckdb/common/query_context.hpp>
 #include <duckdb/common/typedefs.hpp>
 #include <duckdb/storage/arena_allocator.hpp>
 #include <string>
@@ -47,7 +48,7 @@ public:
 
     //! Seal this (full) Memtable into an immutable SSTable. This does not modify the Memtable.
     //! Call Reset() afterwards to reuse it for the next partition.
-    [[nodiscard]] SSTable Seal(duckdb::BufferManager& buffer_manager) const;
+    [[nodiscard]] SSTable Seal(duckdb::BufferManager& buffer_manager, duckdb::QueryContext context = {}) const;
 
     //! Clears the dictionary and postings lists.
     void Reset();

@@ -5,6 +5,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_vector.hpp>
 #include <cstddef>
+#include <duckdb/common/query_context.hpp>
 #include <duckdb/common/typedefs.hpp>
 #include <duckdb/main/database.hpp>
 #include <duckdb/storage/buffer_manager.hpp>
@@ -27,6 +28,7 @@ namespace {
 struct BufferManagerFixture {
     duckdb::DuckDB db{nullptr};
     duckdb::BufferManager& bm = duckdb::BufferManager::GetBufferManager(*db.instance);
+    duckdb::QueryContext context;
 };
 
 // A small block size (multiple of 8) so even tiny inputs spread across multiple blocks.
@@ -66,7 +68,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "SSTable produces correct Lookup results 
                  "[inverted_index][ss_table]") {
     Corpus corpus;
     corpus.Add("term", {1, 2, 3});
-    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), SMALL_BLOCK);
+    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), context, SMALL_BLOCK);
 
     REQUIRE(sst.NumTerms() == 1);
     CHECK_THAT(sst.Lookup("term"), Equals(std::vector<row_t>{1, 2, 3}));
@@ -81,7 +83,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "SSTable produces correct Lookup results 
     corpus.Add("gamma", {3, 4, 9});
     corpus.Add("alpha", {1, 5});
     corpus.Add("beta", {2});
-    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), SMALL_BLOCK);
+    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), context, SMALL_BLOCK);
 
     REQUIRE(sst.NumTerms() == 3);
     CHECK_THAT(sst.Lookup("alpha"), Equals(std::vector<row_t>{1, 5}));
@@ -101,7 +103,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "A term whose postings span many blocks i
     }
     Corpus corpus;
     corpus.Add("t", ids);
-    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), SMALL_BLOCK);
+    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), context, SMALL_BLOCK);
 
     CHECK(sst.NumBlocks() > 1);
     CHECK_THAT(sst.Lookup("t"), Equals(ids));
@@ -118,7 +120,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "A postings list that straddles a block b
     Corpus corpus;
     corpus.Add("a", {7});
     corpus.Add("b", straddling);
-    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), SMALL_BLOCK);
+    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), context, SMALL_BLOCK);
 
     CHECK(sst.NumBlocks() > 1);
     CHECK_THAT(sst.Lookup("a"), Equals(std::vector<row_t>{7}));
@@ -132,7 +134,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "Many terms disperse across blocks and al
     for (row_t i = 0; i < NUM_TERMS; i++) {
         corpus.Add(TermFor(i), {i, i + 2, i + 4});
     }
-    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), SMALL_BLOCK);
+    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), context, SMALL_BLOCK);
 
     CHECK(sst.NumTerms() == NUM_TERMS);
     CHECK(sst.NumBlocks() > 1);
@@ -150,7 +152,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "A few thousand terms build and look up a
         corpus.Add(TermFor(i), {i});
     }
     constexpr duckdb::idx_t MEDIUM_BLOCK = 128;
-    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), MEDIUM_BLOCK);
+    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), context, MEDIUM_BLOCK);
 
     CHECK(sst.NumTerms() == NUM_TERMS);
     CHECK(sst.NumBlocks() > 1);
@@ -166,7 +168,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "MinRowId/MaxRowId return the min and max
     corpus.Add("a", {10, 20});
     corpus.Add("b", {5, 30});
     corpus.Add("c", {15, 20});
-    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), SMALL_BLOCK);
+    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), context, SMALL_BLOCK);
 
     CHECK(sst.MinRowId() == 5);
     CHECK(sst.MaxRowId() == 30);
@@ -178,7 +180,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "SSTable can handle long terms", "[invert
     for (int i = 0; i < 10; i++) {
         corpus.Add(std::string(LONG_LENGTH, 'x') + std::to_string(i), {1, 2, 3});
     }
-    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), SMALL_BLOCK);
+    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), context, SMALL_BLOCK);
 
     CHECK_THAT(sst.Lookup(std::string(LONG_LENGTH, 'x') + "0"), Equals(std::vector<row_t>{1, 2, 3}));
     CHECK_THAT(sst.Lookup(std::string(LONG_LENGTH, 'x') + "5"), Equals(std::vector<row_t>{1, 2, 3}));
@@ -189,7 +191,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "SSTable can handle high row IDs", "[inve
     const std::vector<row_t> row_ids = {duckdb::MAX_ROW_ID - 2, duckdb::MAX_ROW_ID - 1, duckdb::MAX_ROW_ID};
     Corpus corpus;
     corpus.Add("t", row_ids);
-    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), SMALL_BLOCK);
+    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), context, SMALL_BLOCK);
 
     CHECK_THAT(sst.Lookup("t"), Equals(row_ids));
 }
@@ -202,7 +204,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "Lookup handles terms that are prefixes o
     corpus.Add("a", {1});
     corpus.Add("ab", {2});
     corpus.Add("abc", {3});
-    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), SMALL_BLOCK);
+    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), context, SMALL_BLOCK);
 
     CHECK_THAT(sst.Lookup("a"), Equals(std::vector<row_t>{1}));
     CHECK_THAT(sst.Lookup("ab"), Equals(std::vector<row_t>{2}));
@@ -219,7 +221,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "SSTable with 8-byte block size", "[inver
     corpus.Add("alpha", {1, 4, 9});
     corpus.Add("beta", {2, 3});
     corpus.Add("gamma", {5});
-    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), MIN_BLOCK);
+    const SSTable sst = SSTableBuilder::Build(bm, corpus.ToVector(), context, MIN_BLOCK);
 
     CHECK(sst.NumBlocks() > 1);
     CHECK_THAT(sst.Lookup("alpha"), Equals(std::vector<row_t>{1, 4, 9}));
@@ -233,7 +235,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "A moved SSTable still looks up correctly
     Corpus corpus;
     corpus.Add("alpha", {1, 2});
     corpus.Add("beta", {3});
-    SSTable original = SSTableBuilder::Build(bm, corpus.ToVector(), SMALL_BLOCK);
+    SSTable original = SSTableBuilder::Build(bm, corpus.ToVector(), context, SMALL_BLOCK);
     const SSTable moved = std::move(original);
 
     CHECK_THAT(moved.Lookup("alpha"), Equals(std::vector<row_t>{1, 2}));

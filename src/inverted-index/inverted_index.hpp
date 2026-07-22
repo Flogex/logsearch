@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <duckdb/common/optional_idx.hpp>
+#include <duckdb/common/query_context.hpp>
 #include <duckdb/common/typedefs.hpp>
 #include <duckdb/storage/storage_info.hpp>
 #include <memory>
@@ -38,11 +39,11 @@ public:
 
     //! Append `row_id` to `term`'s postings. Row IDs must arrive non-decreasing. When `row_id` is the first of a new
     //! row group, the current Memtable is sealed into an SSTable and a fresh Memtable starts.
-    void Insert(std::string_view term, duckdb::row_t row_id);
+    void Insert(std::string_view term, duckdb::row_t row_id, duckdb::QueryContext context = {});
 
     //! Return the row ID of every row whose indexed column contains `term`, in ascending order.
     //! Row visibility (deletes/updates) is not accounted for yet.
-    [[nodiscard]] std::vector<duckdb::row_t> Lookup(std::string_view term) const;
+    [[nodiscard]] std::vector<duckdb::row_t> Lookup(std::string_view term, duckdb::QueryContext context = {}) const;
 
     //! Number of sealed partitions (SSTables). The active (unsealed) Memtable is not counted.
     [[nodiscard]] std::size_t NumSealedPartitions() const;

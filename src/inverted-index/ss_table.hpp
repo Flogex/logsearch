@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <duckdb/common/query_context.hpp>
 #include <duckdb/common/shared_ptr.hpp>
 #include <duckdb/common/typedefs.hpp>
 #include <duckdb/storage/buffer/block_handle.hpp>
@@ -86,7 +87,8 @@ public:
     ~SSTable() = default;
 
     //! Return `term`'s postings in ascending row-ID order, or an empty vector if the term is absent.
-    [[nodiscard]] std::vector<duckdb::row_t> Lookup(std::string_view search_term) const;
+    [[nodiscard]] std::vector<duckdb::row_t> Lookup(std::string_view search_term,
+                                                    duckdb::QueryContext context = {}) const;
 
     //! Smallest row ID in this SSTable (inclusive). SSTables are never empty, so this is always a real row ID.
     [[nodiscard]] duckdb::row_t MinRowId() const {

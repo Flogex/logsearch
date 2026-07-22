@@ -4,6 +4,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <cstdint>
 #include <cstring>
+#include <duckdb/common/query_context.hpp>
 #include <duckdb/common/serializer/memory_stream.hpp>
 #include <duckdb/common/shared_ptr.hpp>
 #include <duckdb/common/typedefs.hpp>
@@ -22,6 +23,7 @@ class BufferManagerFixture {
 public:
     duckdb::DuckDB db{nullptr};
     duckdb::BufferManager& bm = duckdb::BufferManager::GetBufferManager(*db.instance);
+    duckdb::QueryContext context;
 };
 
 // Pin each block in turn and concatenate the first `total` bytes into one contiguous buffer.
@@ -49,7 +51,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "MultiBlockWriter chunks a byte stream id
                  "[storage][multi_block_writer]") {
     constexpr duckdb::idx_t BLOCK_SIZE = 32; // tiny, to force several blocks
     duckdb::MemoryStream oracle;
-    MultiBlockWriter writer(bm, BLOCK_SIZE);
+    MultiBlockWriter writer(bm, BLOCK_SIZE, context);
 
     // Same sequence of typed values, a raw blob, and a wide value into both sinks.
     for (std::uint32_t i = 0; i < 20; i++) {
@@ -75,7 +77,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "MultiBlockWriter chunks a byte stream id
 TEST_CASE_METHOD(BufferManagerFixture, "Values written through MultiBlockWriter read back via MemoryStream",
                  "[storage][multi_block_writer]") {
     constexpr duckdb::idx_t BLOCK = 24;
-    MultiBlockWriter writer(bm, BLOCK);
+    MultiBlockWriter writer(bm, BLOCK, context);
     for (std::uint64_t i = 0; i < 30; i++) {
         writer.Write<std::uint64_t>(i * 1000);
     }
@@ -91,7 +93,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "Values written through MultiBlockWriter 
 TEST_CASE_METHOD(BufferManagerFixture, "Writing an exact multiple of block_size uses full blocks",
                  "[storage][multi_block_writer]") {
     constexpr duckdb::idx_t BLOCK_SIZE = 64;
-    MultiBlockWriter writer(bm, BLOCK_SIZE);
+    MultiBlockWriter writer(bm, BLOCK_SIZE, context);
     const std::vector<std::uint8_t> data(BLOCK_SIZE * 3, 0xAB); // exactly three full blocks
     writer.WriteData(data.data(), data.size());
     const std::vector<duckdb::shared_ptr<duckdb::BlockHandle>> blocks = writer.Finish();
@@ -104,7 +106,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "Writing an exact multiple of block_size 
 TEST_CASE_METHOD(BufferManagerFixture, "A write smaller than block_size uses a single block",
                  "[storage][multi_block_writer]") {
     constexpr duckdb::idx_t BLOCK = 256;
-    MultiBlockWriter writer(bm, BLOCK);
+    MultiBlockWriter writer(bm, BLOCK, context);
     const std::vector<std::uint8_t> data = {9, 8, 7, 6, 5};
     writer.WriteData(data.data(), data.size());
     const std::vector<duckdb::shared_ptr<duckdb::BlockHandle>> blocks = writer.Finish();
@@ -117,7 +119,7 @@ TEST_CASE_METHOD(BufferManagerFixture, "A write smaller than block_size uses a s
 TEST_CASE_METHOD(BufferManagerFixture, "A single WriteData larger than a block spans blocks",
                  "[storage][multi_block_writer]") {
     constexpr duckdb::idx_t BLOCK = 16;
-    MultiBlockWriter writer(bm, BLOCK);
+    MultiBlockWriter writer(bm, BLOCK, context);
     std::vector<std::uint8_t> data(100);
     for (std::size_t i = 0; i < data.size(); i++) {
         data[i] = static_cast<std::uint8_t>(i);

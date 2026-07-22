@@ -4,6 +4,7 @@
 #include <cstring>
 #include <duckdb/common/assert.hpp>
 #include <duckdb/common/enums/memory_tag.hpp>
+#include <duckdb/common/query_context.hpp>
 #include <duckdb/common/shared_ptr.hpp>
 #include <duckdb/common/typedefs.hpp>
 #include <duckdb/storage/buffer/block_handle.hpp>
@@ -14,8 +15,9 @@
 
 namespace logsearch::storage {
 
-MultiBlockWriter::MultiBlockWriter(duckdb::BufferManager& buffer_manager, const duckdb::idx_t block_size)
-    : bm_(buffer_manager), block_size_(block_size) {
+MultiBlockWriter::MultiBlockWriter(duckdb::BufferManager& buffer_manager, const duckdb::idx_t block_size,
+                                   const duckdb::QueryContext context)
+    : bm_(buffer_manager), block_size_(block_size), context_(context) {
     D_ASSERT(block_size_ > 0);
 }
 
@@ -54,11 +56,11 @@ void MultiBlockWriter::EnsureSpace() {
     // Only the block currently being written is pinned.
     // Finished blocks are kept alive because we store their BlockHandles in `blocks_`.
     if (!current_block_.IsValid()) {
-        current_block_ = bm_.Allocate(duckdb::MemoryTag::EXTENSION, block_size_, false);
+        current_block_ = bm_.Allocate(context_, duckdb::MemoryTag::EXTENSION, block_size_, false);
         current_offset_in_block_ = 0;
     } else if (current_offset_in_block_ == block_size_) {
         blocks_.push_back(current_block_.GetBlockHandle());
-        current_block_ = bm_.Allocate(duckdb::MemoryTag::EXTENSION, block_size_, false);
+        current_block_ = bm_.Allocate(context_, duckdb::MemoryTag::EXTENSION, block_size_, false);
         current_offset_in_block_ = 0;
     }
     // Allocate returns a buffer of at least block_size_ (it may round up). We only ever write block_size_ bytes.

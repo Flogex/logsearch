@@ -8,8 +8,6 @@
   backward-compatibility test (serialize via `MemoryStream`, compare bytes). Bump `SSTABLE_VERSION` on layout changes.
 - SSTable: zero-copy `PostingsCursor` reading a run in place from a pinned block, plus a k-way merge across partitions.
   `Lookup` currently materializes a `std::vector<row_t>` per partition and the query path concatenates them.
-- SSTable: thread `QueryContext`/`ClientContext` through `Lookup` -> `PinnedBlockCache` -> `BufferManager::Pin` for
-  per-query I/O attribution and cancellation. No-op while blocks are in memory; relevant once they are on disk/remote.
 - SSTable: dictionary sparse index (anchor every k-th entry) — needed once front coding breaks direct binary search.
 - SSTable: resident dictionary (keep the dict blocks pinned, or decode once into memory) if `Lookup` proves hot.
 - Analyzer: cap token length so `term_length` always fits `uint32` (a longer term currently truncates in `Build`).

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <duckdb/common/query_context.hpp>
 #include <duckdb/common/serializer/write_stream.hpp>
 #include <duckdb/common/shared_ptr.hpp>
 #include <duckdb/common/typedefs.hpp>
@@ -18,7 +19,7 @@ namespace logsearch::storage {
 // TODO: Add persistence of blocks
 class MultiBlockWriter final : public duckdb::WriteStream {
 public:
-    MultiBlockWriter(duckdb::BufferManager& buffer_manager, duckdb::idx_t block_size);
+    MultiBlockWriter(duckdb::BufferManager& buffer_manager, duckdb::idx_t block_size, duckdb::QueryContext context);
 
     MultiBlockWriter(const MultiBlockWriter&) = delete;
     MultiBlockWriter& operator=(const MultiBlockWriter&) = delete;
@@ -43,6 +44,7 @@ private:
 
     duckdb::BufferManager& bm_;
     duckdb::idx_t block_size_;
+    duckdb::QueryContext context_;
     duckdb::BufferHandle current_block_;
     duckdb::idx_t current_offset_in_block_ = 0;
     duckdb::idx_t bytes_written_ = 0;

@@ -15,6 +15,7 @@
 #include <duckdb/common/exception.hpp>
 #include <duckdb/common/helper.hpp>
 #include <duckdb/common/optional_idx.hpp>
+#include <duckdb/common/query_context.hpp>
 #include <duckdb/common/serializer/write_stream.hpp>
 #include <duckdb/common/typedefs.hpp>
 #include <duckdb/storage/buffer_manager.hpp>
@@ -133,7 +134,7 @@ void WriteSSTableBytes(duckdb::WriteStream& out, const std::vector<TermPostings>
 //
 // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved): consumed by writing sorted terms to block
 SSTable SSTableBuilder::Build(duckdb::BufferManager& buffer_manager, std::vector<TermPostings>&& terms,
-                              const duckdb::optional_idx block_size_overwrite) {
+                              const duckdb::QueryContext context, const duckdb::optional_idx block_size_overwrite) {
     D_ASSERT(!terms.empty());
     // Tests pass a small `block_size_overwrite` value to get multiple blocks already with little data.
     // DEFAULT_BLOCK_SIZE is 262136 bytes (2^18 - 8 header bytes).
@@ -154,7 +155,7 @@ SSTable SSTableBuilder::Build(duckdb::BufferManager& buffer_manager, std::vector
     const SSTableHeader header = ComputeHeader(terms, block_size);
 
     // Pass 2: Writes the full SSTable byte layout (header, dictionary, string pool, alignment padding, postings).
-    storage::MultiBlockWriter writer(buffer_manager, block_size);
+    storage::MultiBlockWriter writer(buffer_manager, block_size, context);
     WriteSSTableBytes(writer, terms, header);
     auto blocks = writer.Finish();
     D_ASSERT(writer.BytesWritten() == header.total_size);
