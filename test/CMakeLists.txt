@@ -25,7 +25,18 @@ add_executable(
 )
 
 target_include_directories(unittests PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/test)
-target_include_directories(unittests PRIVATE SYSTEM ${duckdb_SOURCE_DIR}/src/include)
+
+# DuckDB registers its own and third_party include paths (src/include, fmt, ...) via the
+# directory-scoped include_directories() rather than as target-specific functions, so neither
+# duckdb_static nor the logsearch extension expose them through INTERFACE_INCLUDE_DIRECTORIES.
+# Instead, the include directories are a directory property.
+# At least the fmt include is needed because duckdb/function/function.hpp includes fmt/core.h.
+get_directory_property(
+  DUCKDB_INCLUDE_DIRECTORIES
+  DIRECTORY ${duckdb_SOURCE_DIR}
+  INCLUDE_DIRECTORIES
+)
+target_include_directories(unittests SYSTEM PRIVATE ${DUCKDB_INCLUDE_DIRECTORIES})
 
 target_link_libraries(
   unittests

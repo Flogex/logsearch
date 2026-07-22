@@ -2,6 +2,7 @@
 
 #include <duckdb/execution/index/index_type.hpp>
 #include <duckdb/execution/operator/scan/physical_dummy_scan.hpp>
+#include <duckdb/execution/physical_plan_generator.hpp>
 #include <duckdb/parser/parsed_data/alter_table_info.hpp>
 #include <duckdb/planner/operator/logical_create_index.hpp>
 
