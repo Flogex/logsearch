@@ -1,5 +1,7 @@
 #include "storage/multi_block_writer.hpp"
 
+#include "test-utils/fixtures.hpp"
+
 #include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <cstdint>
@@ -17,14 +19,6 @@
 using logsearch::storage::MultiBlockWriter;
 
 namespace {
-
-// Unit tests have no DatabaseInstance by default, so spin up an in-memory DuckDB and borrow its BufferManager.
-class BufferManagerFixture {
-public:
-    duckdb::DuckDB db{nullptr};
-    duckdb::BufferManager& bm = duckdb::BufferManager::GetBufferManager(*db.instance);
-    duckdb::QueryContext context;
-};
 
 // Pin each block in turn and concatenate the first `total` bytes into one contiguous buffer.
 std::vector<std::uint8_t> Reassemble(duckdb::BufferManager& bm,

@@ -1,5 +1,7 @@
 #include "inverted-index/memtable.hpp"
 
+#include "test-utils/fixtures.hpp"
+
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_vector.hpp>
 #include <duckdb/common/allocator.hpp>
@@ -8,13 +10,6 @@
 
 using Catch::Matchers::Equals;
 using logsearch::inverted_index::Memtable;
-
-namespace {
-struct AllocatorFixture {
-    // No DatabaseInstance in unit tests, so use the global default allocator
-    duckdb::Allocator& allocator = duckdb::Allocator::DefaultAllocator();
-};
-} // namespace
 
 TEST_CASE_METHOD(AllocatorFixture, "The dictionary of a new Memtable is empty", "[inverted_index][memtable]") {
     const Memtable index{allocator};

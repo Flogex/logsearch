@@ -2,6 +2,7 @@
 
 #include "inverted-index/memtable.hpp"
 #include "inverted-index/ss_table.hpp"
+#include "test-utils/fixtures.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_vector.hpp>
@@ -15,15 +16,6 @@ using duckdb::row_t;
 using logsearch::inverted_index::InvertedIndex;
 using logsearch::inverted_index::Memtable;
 using logsearch::inverted_index::SSTable;
-
-namespace {
-// Unit tests have no DatabaseInstance by default, so spin up an in-memory DuckDB and borrow its BufferManager
-// (backs the Memtable arena via its allocator, and the sealed SSTables' blocks).
-struct BufferManagerFixture {
-    duckdb::DuckDB db{nullptr};
-    duckdb::BufferManager& bm = duckdb::BufferManager::GetBufferManager(*db.instance);
-};
-} // namespace
 
 TEST_CASE_METHOD(BufferManagerFixture, "Seal produces an SSTable matching the memtable", "[inverted_index][seal]") {
     Memtable memtable{bm.GetBufferAllocator()};

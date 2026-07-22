@@ -1,6 +1,7 @@
 #include "inverted-index/ss_table.hpp"
 
 #include "inverted-index/ss_table_builder.hpp"
+#include "test-utils/fixtures.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_vector.hpp>
@@ -22,14 +23,6 @@ using logsearch::inverted_index::SSTableBuilder;
 using logsearch::inverted_index::TermPostings;
 
 namespace {
-
-// Unit tests have no DatabaseInstance by default, so spin up an in-memory DuckDB and
-// borrow its BufferManager. Blocks allocated through it stay in memory (no checkpoint / no disk).
-struct BufferManagerFixture {
-    duckdb::DuckDB db{nullptr};
-    duckdb::BufferManager& bm = duckdb::BufferManager::GetBufferManager(*db.instance);
-    duckdb::QueryContext context;
-};
 
 // A small block size (multiple of 8) so even tiny inputs spread across multiple blocks.
 constexpr duckdb::idx_t SMALL_BLOCK = 64;
