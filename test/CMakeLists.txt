@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.22)
-
 include(FetchContent)
 FetchContent_Declare(
   Catch2
@@ -38,12 +36,13 @@ get_directory_property(
 )
 target_include_directories(unittests SYSTEM PRIVATE ${DUCKDB_INCLUDE_DIRECTORIES})
 
+set_target_properties(unittests PROPERTIES LINK_LIBRARIES_ONLY_TARGETS ON)
 target_link_libraries(
   unittests
   PRIVATE
-    # ${EXTENSION_NAME} pulls duckdb_static transitively (build_static_extension
-    # links it without keyword → propagates). Listing it explicitly here would
-    # double-list the .a and trip ld's "ignoring duplicate libraries" warning.
+    # ${EXTENSION_NAME} pulls duckdb_static transitively (see build_static_extension).
+    # Listing it explicitly here would double-list the .a and trip ld's "ignoring duplicate libraries" warning.
+    # The extension's sanitizer options are PUBLIC, so they are inherited the same way.
     ${EXTENSION_NAME}
     duckdb_generated_extension_loader
     parquet_extension
@@ -52,6 +51,5 @@ target_link_libraries(
 )
 
 list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
-include(CTest)
 include(Catch)
 catch_discover_tests(unittests)

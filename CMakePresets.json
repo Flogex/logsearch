@@ -7,11 +7,18 @@
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "EXTENSION_STATIC_BUILD": "1"
+      },
+      "warnings": {
+        "dev": true,
+        "deprecated": true,
+        "unusedCli": true,
+        "uninitialized": false
       }
     },
     {
       "name": "release",
       "inherits": "base",
+      "description": "Optimized release build",
       "binaryDir": "${sourceDir}/build/release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
@@ -20,24 +27,30 @@
     {
       "name": "debug",
       "inherits": "base",
+      "description": "Debug build with ASan/UBSan enabled",
       "binaryDir": "${sourceDir}/build/debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "ENABLE_ASAN": "ON",
-        "ENABLE_UBSAN": "ON"
+        "LOGSEARCH_ENABLE_ASAN": "ON",
+        "LOGSEARCH_ENABLE_UBSAN": "ON"
       }
     },
     {
       "name": "reldebinfo",
       "inherits": "base",
+      "description": "Release build with debug info and DuckDB assertions, no sanitizers",
       "binaryDir": "${sourceDir}/build/reldebinfo",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_CXX_FLAGS": "-DDUCKDB_FORCE_ASSERT",
+        "CMAKE_C_FLAGS": "-DDUCKDB_FORCE_ASSERT"
       }
     },
     {
-      "name": "release-ci",
+      "name": "release-lint",
       "inherits": "release",
+      "description": "Release build with linting (clang-tidy, cppcheck) enabled",
+      "binaryDir": "${sourceDir}/build/release-lint",
       "cacheVariables": {
         "ENABLE_LINTING": "ON"
       }
@@ -57,14 +70,14 @@
       "name": "reldebinfo"
     },
     {
-      "configurePreset": "release-ci",
-      "name": "release-ci"
+      "configurePreset": "release-lint",
+      "name": "release-lint"
     }
   ],
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 25,
+    "minor": 28,
     "patch": 0
   },
-  "version": 6
+  "version": 8
 }

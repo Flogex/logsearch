@@ -1,3 +1,7 @@
+# The directory is added from the DuckDB source tree.
+# DuckDB sets minimum_required itself, so we have to overwrite it to use the newest policies.
+cmake_minimum_required(VERSION 3.28...4.4)
+
 set(
   SOURCE_FILES
   analyzer/analyzer_ub.cpp
@@ -16,8 +20,7 @@ target_include_directories(${EXTENSION_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CU
 target_include_directories(${LOADABLE_EXTENSION_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Compiler warnings. PRIVATE so they don't propagate to DuckDB or consumers.
-# Curated to be strict without being noisy. -Werror is gated on ENABLE_LINTING
-# so local dev builds still succeed on new warnings; CI catches them.
+# Curated to be strict without being noisy. Warnings become errors only under ENABLE_LINTING.
 set(
   WARN_FLAGS
   -Wall
@@ -51,9 +54,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 endif()
 foreach(target IN ITEMS ${EXTENSION_NAME} ${LOADABLE_EXTENSION_NAME})
   target_compile_options(${target} PRIVATE ${WARN_FLAGS})
-  if(ENABLE_LINTING)
-    target_compile_options(${target} PRIVATE -Werror)
-  endif()
+  set_target_properties(${target} PROPERTIES COMPILE_WARNING_AS_ERROR ${ENABLE_LINTING})
 endforeach()
 
 # Expose the static extension to DuckDB's install set so packaging /
@@ -66,47 +67,8 @@ install(
   ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
 )
 
-set(SANITIZER_FLAGS)
-if(ENABLE_ASAN)
-  list(APPEND SANITIZER_FLAGS -fsanitize=address)
-endif()
-if(ENABLE_UBSAN)
-  list(APPEND SANITIZER_FLAGS -fsanitize=undefined)
-endif()
-if(SANITIZER_FLAGS)
-  foreach(target IN ITEMS ${EXTENSION_NAME} ${LOADABLE_EXTENSION_NAME})
-    # Compile flags are PRIVATE to avoid propagating -fsanitize=... to DuckDB itself.
-    # We only want to instrument our extension code.
-    target_compile_options(
-      ${target}
-      PRIVATE ${SANITIZER_FLAGS} -fno-sanitize-recover=all -fno-omit-frame-pointer
-    )
-    # Link flags propagate to consumers (e.g. duckdb_static) so the final binary links the sanitizer runtime.
-    # Otherwise, we would get unresolved __asan_/__ubsan_ symbols.
-    target_link_options(${target} PUBLIC ${SANITIZER_FLAGS})
-  endforeach()
-endif()
+foreach(target IN ITEMS ${EXTENSION_NAME} ${LOADABLE_EXTENSION_NAME})
+  logsearch_apply_sanitizers(${target})
+endforeach()
 
-if(ENABLE_LINTING)
-  find_program(CLANG_TIDY_EXE NAMES clang-tidy REQUIRED)
-  set(CLANG_TIDY_CMD ${CLANG_TIDY_EXE} --header-filter=^${CMAKE_CURRENT_SOURCE_DIR}/)
-  if(APPLE)
-    # clang-tidy installed from Homebrew can't locate libc++ system headers without explicit -isysroot.
-    execute_process(
-      COMMAND xcrun --show-sdk-path
-      OUTPUT_VARIABLE MACOS_SDK_PATH
-      OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    list(APPEND CLANG_TIDY_CMD --extra-arg-before=-isysroot --extra-arg-before=${MACOS_SDK_PATH})
-  endif()
-  set_target_properties(${EXTENSION_NAME} PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_CMD}")
-
-  find_program(CPPCHECK_EXE NAMES cppcheck REQUIRED)
-  # Sane defaults: skip `unusedFunction` (whole-program, slow) and
-  # `missingInclude` (noisy on STL). `--error-exitcode=1` fails build on findings.
-  set(
-    CPPCHECK_CMD
-    "${CPPCHECK_EXE};--enable=warning,performance,portability;--inline-suppr;--suppress=missingIncludeSystem;--suppress=*:*/_deps/*;--std=c++${CMAKE_CXX_STANDARD};--quiet;--error-exitcode=1"
-  )
-  set_target_properties(${EXTENSION_NAME} PROPERTIES CXX_CPPCHECK "${CPPCHECK_CMD}")
-endif()
+logsearch_apply_linters(${EXTENSION_NAME})

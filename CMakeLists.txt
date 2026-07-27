@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.28...4.4)
 project(LogsearchExtension CXX)
 
 include(FetchContent)
@@ -7,8 +7,11 @@ set(EXTENSION_NAME logsearch_extension)
 set(LOADABLE_EXTENSION_NAME logsearch_loadable_extension)
 
 option(ENABLE_LINTING "Run clang-tidy and cppcheck on extension targets during build" OFF)
-option(ENABLE_ASAN "Build extension targets with AddressSanitizer" OFF)
-option(ENABLE_UBSAN "Build extension targets with UndefinedBehaviorSanitizer" OFF)
+option(LOGSEARCH_ENABLE_ASAN "Build with AddressSanitizer" OFF)
+option(LOGSEARCH_ENABLE_UBSAN "Build with UndefinedBehaviorSanitizer" OFF)
+
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/linters.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/sanitizers.cmake)
 
 # We set DUCKDB_EXTENSION_CONFIGS before adding DuckDB as subdirectory.
 # DuckDB reads extension_config.cmake and calls add_subdirectory again to load this directory.
@@ -25,9 +28,12 @@ if(PROJECT_IS_TOP_LEVEL)
     set(CMAKE_CXX_COMPILER_LAUNCHER "${COMPILER_LAUNCHER}")
   endif()
 
-  # Global on purpose because DuckDB itself must be compiled with the define.
-  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -DDUCKDB_FORCE_ASSERT")
-  set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -DDUCKDB_FORCE_ASSERT")
+  # Enable sanitizers in DuckDB if and only if they are enabled for the extension targets as well.
+  # UBSAN is only enabled in debug mode or if ENABLE_UBSAN and FORCE_ASSERT are set to true.
+  # This means that in our setup, the DuckDB code will never be instrumented with UBSAN in release mode.
+  set(ENABLE_SANITIZER ${LOGSEARCH_ENABLE_ASAN})
+  set(RELEASE_SANITIZER ${LOGSEARCH_ENABLE_ASAN})
+  set(ENABLE_UBSAN ${LOGSEARCH_ENABLE_UBSAN})
 
   set(FETCHCONTENT_TRY_FIND_PACKAGE_MODE NEVER)
   set(FETCHCONTENT_QUIET OFF)
@@ -39,7 +45,7 @@ if(PROJECT_IS_TOP_LEVEL)
   # the else-branch below.
   set(
     DUCKDB_EXTENSION_CONFIGS
-    "${CMAKE_CURRENT_SOURCE_DIR}/extension_config.cmake"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/extension_config.cmake"
     CACHE STRING
     ""
     FORCE
@@ -52,6 +58,7 @@ if(PROJECT_IS_TOP_LEVEL)
     GIT_SHALLOW TRUE
     SYSTEM
   )
+  set(ENABLE_UNITTEST_CPP_TESTS OFF) # Don't build DuckDB C++ tests, which we don't run anyway.
   FetchContent_MakeAvailable(duckdb)
 
   enable_testing()
