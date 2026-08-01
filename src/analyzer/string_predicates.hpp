@@ -4,7 +4,7 @@
 
 namespace logsearch::analyzer {
 
-///! Returns true if the content of the string_view can be ASCII-encoded, otherwise false.
+//! Returns true if the content of the string_view can be ASCII-encoded, otherwise false.
 constexpr bool IsAscii(const std::string_view sv) noexcept {
     constexpr unsigned char HIGH_BIT = 0x80;
     // Uses branchless OR-reduce to allow for auto-vectorization.
@@ -17,7 +17,7 @@ constexpr bool IsAscii(const std::string_view sv) noexcept {
     return (acc & HIGH_BIT) == 0;
 }
 
-///! Returns true if the string_view does not contain any ASCII uppercase characters.
+//! Returns true if the string_view does not contain any ASCII uppercase characters.
 constexpr bool IsLowercase(const std::string_view sv) noexcept {
     // NOLINTNEXTLINE(readability-use-anyofallof) — std::all_of is not constexpr in C++17.
     for (const unsigned char c : sv) {
