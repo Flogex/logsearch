@@ -11,6 +11,7 @@
 #include "tokenizer.hpp"
 
 #include <cstring>
+#include <duckdb/common/allocator.hpp>
 #include <duckdb/common/exception.hpp>
 #include <duckdb/storage/arena_allocator.hpp>
 #include <string>
@@ -57,11 +58,18 @@ void RunAsciiPipeline(MutableSpan doc, std::vector<std::string>& output) {
 
 } // namespace
 
-Pipeline::Pipeline(duckdb::ArenaAllocator& arena) noexcept : arena_(arena) {
+Pipeline::Pipeline(duckdb::Allocator& allocator) : arena_(allocator) {
 }
 
-std::vector<std::string> Pipeline::Run(const std::string_view document) const {
+std::vector<std::string> Pipeline::Run(const std::string_view document) {
     std::vector<std::string> output;
+
+    // Every stage pushes its tokens downstream before Run returns and the terms are collected as owning strings, so
+    // nothing points into the arena between calls. Resetting here keeps reduces the memory footprint because only
+    // a single document is processed.
+    // In the future, we will probably get some kind of `Collect` function that returns an iterator and, when done,
+    // resets the arena.
+    arena_.Reset();
 
     // Take ownership of the string to allow in-place modifications.
     // Previous owner is some DuckDB operator, and we cannot be sure that the string is not used for anything else (e.g.

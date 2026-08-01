@@ -3,7 +3,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_vector.hpp>
 #include <duckdb/common/allocator.hpp>
-#include <duckdb/storage/arena_allocator.hpp>
 #include <string>
 #include <vector>
 
@@ -19,8 +18,7 @@ using logsearch::analyzer::Pipeline;
 namespace {
 
 std::vector<std::string> RunPipeline(std::string_view document) {
-    duckdb::ArenaAllocator arena(duckdb::Allocator::DefaultAllocator());
-    Pipeline pipeline(arena);
+    Pipeline pipeline(duckdb::Allocator::DefaultAllocator());
     return pipeline.Run(document);
 }
 
@@ -58,4 +56,24 @@ TEST_CASE("Pipeline analyzes a realistic exception log line", "[analyzer][pipeli
                      "resolved",
                      "runtime",
                  }));
+}
+
+TEST_CASE("Previous runs of the same Pipeline do not affect the current run", "[analyzer][pipeline]") {
+    Pipeline pipeline(duckdb::Allocator::DefaultAllocator());
+
+    REQUIRE_THAT(pipeline.Run("alpha beta gamma delta epsilon"),
+                 Equals(std::vector<std::string>{"alpha", "beta", "gamma", "delta", "epsilon"}));
+    REQUIRE_THAT(pipeline.Run("zeta"), Equals(std::vector<std::string>{"zeta"}));
+    REQUIRE(pipeline.Run("").empty());
+    REQUIRE_THAT(pipeline.Run("eta theta"), Equals(std::vector<std::string>{"eta", "theta"}));
+}
+
+TEST_CASE("Pipeline analyzes documents larger than the initial arena chunk", "[analyzer][pipeline]") {
+    // The arena starts out with a 2 KB chunk, so a longer document forces a fresh one.
+    Pipeline pipeline(duckdb::Allocator::DefaultAllocator());
+    const std::string long_term(4000, 'x');
+
+    REQUIRE_THAT(pipeline.Run(long_term), Equals(std::vector<std::string>{long_term}));
+    REQUIRE_THAT(pipeline.Run("short"), Equals(std::vector<std::string>{"short"}));
+    REQUIRE_THAT(pipeline.Run(long_term + " tail"), Equals(std::vector<std::string>{long_term, "tail"}));
 }

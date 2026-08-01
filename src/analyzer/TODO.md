@@ -33,8 +33,10 @@ For CJK: **don't fold to ASCII at all.** Transliteration to pinyin collapses man
 
 ## Handling Memory Pressure
 
-If we want to cap the memory usage per thread/pipeline and respond to memory pressue:
+If we want to cap the memory usage per thread/pipeline and respond to memory pressure:
 
 1. **Local arena exhausted** (one document is pathological). Other threads fine. Response: truncate this document via an explicit return code, `arena.reset()`, continue with next document. Truncation must be **observable** via a counter — silent partial indexing is the worst outcome.
 2. **Process-wide pressure** (cgroup limit approaching). Atomic byte counter + background pressure-level enum (`Normal` / `Elevated` / `High` / `Critical`). Workers consult it per document and adjust: flush sooner at Elevated, refuse new documents at High, truncate aggressively at Critical.
 3. **System-wide thrashing**. Same as Critical, plus proactive flush of posting buffers even at suboptimal segment sizes — small segments are recoverable, OOMs aren't.
+
+Furthermore, think about smarter policies for clearing the arena (or continuing to append to it if still enough space).

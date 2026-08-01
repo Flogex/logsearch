@@ -67,7 +67,7 @@ This is manifested in the following coding practices:
   After tokenization, every stage can produce zero or more tokens that it pushes directly to the downstream consumer
   without buffering.
 - Auto-vectorizable kernels: Iterating over strings in a way that allows the compiler to vectorize the hot loops.
-- Parallelizable: No shared state between Pipelines except for an `ArenaAllocator`.
+- Parallelizable: No shared state between Pipelines except for a shared `duckdb::Allocator`.
   The goal is to be able to run an analyzer pipeline for many documents in parallel.
 - No virtual function calls: The pipeline stages are fixed at compile time and the optimizer can inline them.
 - Testing: We have unit tests for each stage.
