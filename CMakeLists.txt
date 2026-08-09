@@ -55,7 +55,8 @@ if(PROJECT_IS_TOP_LEVEL)
     GIT_REPOSITORY https://github.com/duckdb/duckdb.git
     GIT_TAG
       7c0fa265df67f4d8ed5cc4f94910c5677d127afd # main branch as of 2026-07-15
-    GIT_SHALLOW TRUE
+    # `GIT_SHALLOW TRUE` only works with branch names and tags.
+    GIT_SHALLOW FALSE
     SYSTEM
   )
   set(ENABLE_UNITTEST_CPP_TESTS OFF) # Don't build DuckDB C++ tests, which we don't run anyway.
