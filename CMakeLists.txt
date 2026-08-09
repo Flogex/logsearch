@@ -54,7 +54,7 @@ if(PROJECT_IS_TOP_LEVEL)
     duckdb
     GIT_REPOSITORY https://github.com/duckdb/duckdb.git
     GIT_TAG
-      7c0fa265df67f4d8ed5cc4f94910c5677d127afd # main branch as of 2026-07-15
+      e500d77864fe565f90e68f06d729c25b11e775c5 # main branch as of 2026-08-09
     # `GIT_SHALLOW TRUE` only works with branch names and tags.
     GIT_SHALLOW FALSE
     SYSTEM
