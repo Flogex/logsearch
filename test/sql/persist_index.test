@@ -1,0 +1,18 @@
+# name: test/sql/persist_index.test
+# description: a logsearch index cannot be persisted yet, and says so
+
+require logsearch
+
+load {TEST_DIR}/logsearch_persist.db
+
+statement ok
+CREATE TABLE tbl (message VARCHAR);
+
+statement ok
+INSERT INTO tbl VALUES ('connection refused');
+
+# Committing the index writes it to the WAL, which is not implemented.
+statement error
+CREATE INDEX msg_idx ON tbl USING logsearch (message);
+----
+<REGEX>:.*Logsearch index cannot be written to the WAL yet.*

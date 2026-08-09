@@ -1,0 +1,56 @@
+# name: test/sql/create_simple_index.test
+# description: Check expected errors when creating Logsearch index
+
+require logsearch
+
+statement ok
+CREATE TABLE tbl (id INTEGER, message VARCHAR);
+
+statement error
+CREATE UNIQUE INDEX u ON tbl USING logsearch (message);
+----
+cannot enforce a UNIQUE or PRIMARY KEY constraint
+
+# The key has to be a plain column reference for now, not an expression over one.
+statement error
+CREATE INDEX expr_logsearch_idx ON tbl USING logsearch (message || ' tagged');
+----
+can only be created on a column reference expression
+
+statement error
+CREATE INDEX expr_logsearch_idx ON tbl USING logsearch (lower(message));
+----
+can only be created on a column reference expression
+
+# A cast is an expression too, even where it would produce a VARCHAR key.
+statement error
+CREATE INDEX expr_logsearch_idx ON tbl USING logsearch (CAST(id AS VARCHAR));
+----
+can only be created on a column reference expression
+
+statement error
+CREATE INDEX two ON tbl USING logsearch (message, message);
+----
+must cover exactly one column
+
+statement error
+CREATE INDEX num ON tbl USING logsearch (id);
+----
+can only be created on a VARCHAR column
+
+statement error
+CREATE INDEX opt ON tbl USING logsearch (message) WITH (foo = 1);
+----
+takes no options
+
+# The build needs whole row groups per scan task, which verify_parallelism splits up.
+statement ok
+PRAGMA verify_parallelism;
+
+statement error
+CREATE INDEX parallel_logsearch_idx ON tbl USING logsearch (message);
+----
+cannot be created when verify_parallelism is enabled
+
+statement ok
+PRAGMA disable_verify_parallelism;

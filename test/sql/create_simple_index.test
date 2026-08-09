@@ -1,5 +1,5 @@
-# name: test/sql/logsearch.test
-# description: smoke test for logsearch extension scalar functions
+# name: test/sql/create_simple_index.test
+# description: CREATE INDEX ... USING logsearch over a VARCHAR column
 
 require logsearch
 
@@ -7,4 +7,21 @@ statement ok
 CREATE TABLE tbl (id INTEGER, message VARCHAR);
 
 statement ok
+INSERT INTO tbl VALUES (1, 'connection refused'), (2, 'connection established'), (3, NULL);
+
+statement ok
 CREATE INDEX simple_logsearch_idx ON tbl USING logsearch (message);
+
+# The index is registered in the catalog, unlike a plan-replacing stub.
+query III
+SELECT index_name, table_name, is_unique FROM duckdb_indexes();
+----
+simple_logsearch_idx	tbl	false
+
+statement ok
+DROP INDEX simple_logsearch_idx;
+
+query I
+SELECT count(*) FROM duckdb_indexes();
+----
+0

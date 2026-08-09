@@ -16,6 +16,7 @@ add_executable(
   analyzer/pipeline.test.cpp
   analyzer/stopword_filter.test.cpp
   analyzer/tokenizer.test.cpp
+  duckdb-index/logsearch_index.test.cpp
   inverted-index/inverted_index.test.cpp
   inverted-index/memtable.test.cpp
   inverted-index/ss_table.test.cpp

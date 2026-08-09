@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.28...4.4)
 set(
   SOURCE_FILES
   analyzer/analyzer_ub.cpp
-  duckdb-index/logsearch_index.cpp
+  duckdb-index/duckdb_index_ub.cpp
   inverted-index/inverted_index_ub.cpp
   storage/multi_block_writer.cpp
   logsearch_extension.cpp
@@ -39,6 +39,10 @@ set(
   -Wunused
   -Wzero-as-null-pointer-constant
 )
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  # Enforces the DUCKDB_GUARDED_BY / DUCKDB_REQUIRES annotations.
+  list(APPEND WARN_FLAGS -Wthread-safety)
+endif()
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   # GCC-only warnings (Clang doesn't accept some of these or treats them as no-ops).
   # -Wno-missing-field-initializers: GCC fires this on C++20 designated initializers

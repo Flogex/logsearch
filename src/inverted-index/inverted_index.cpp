@@ -140,6 +140,15 @@ std::size_t InvertedIndex::NumSealedPartitions() const {
     return partitions_.size();
 }
 
+std::size_t InvertedIndex::TotalDictionarySize() const {
+    D_ASSERT(memtable_);
+    std::size_t total = memtable_->DictionarySize();
+    for (const SSTable& partition : partitions_) {
+        total += partition.NumTerms();
+    }
+    return total;
+}
+
 duckdb::idx_t InvertedIndex::RowGroupOf(const duckdb::row_t row_id) const {
     // Floor-dividing by the row group size assumes that row groups start at multiples of `row_group_size_`.
     // That holds for a table carrying this index: Indexed tables always top up their last row group (SUGGEST_NEW is

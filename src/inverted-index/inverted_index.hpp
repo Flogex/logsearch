@@ -56,6 +56,11 @@ public:
     //! Number of sealed partitions (SSTables). The active (unsealed) Memtable is not counted.
     [[nodiscard]] std::size_t NumSealedPartitions() const;
 
+    //! Number of dictionary entries summed over the active Memtable and every sealed partition. Each partition keeps
+    //! its own dictionary, so a term occurring in several of them contributes once per partition. This is a size
+    //! measure, not a count of distinct terms.
+    [[nodiscard]] std::size_t TotalDictionarySize() const;
+
 private:
     //! The row group (== index partition) that `row_id` belongs to.
     [[nodiscard]] duckdb::idx_t RowGroupOf(duckdb::row_t row_id) const;
