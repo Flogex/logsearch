@@ -7,16 +7,20 @@
 #include "memtable.hpp"
 #include "ss_table.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <duckdb/common/assert.hpp>
 #include <duckdb/common/constants.hpp>
+#include <duckdb/common/helper.hpp>
 #include <duckdb/common/optional_idx.hpp>
 #include <duckdb/common/query_context.hpp>
 #include <duckdb/common/typedefs.hpp>
 #include <duckdb/storage/buffer_manager.hpp>
 #include <duckdb/storage/storage_info.hpp>
+#include <iterator>
 #include <memory>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace logsearch::inverted_index {
@@ -35,18 +39,20 @@ InvertedIndex::InvertedIndex(duckdb::BufferManager& buffer_manager, const duckdb
     }
 }
 
-// We defined the destructor in the .cpp file to be able to forward-declare Memtable and SSTable.
-// The destructors of std::vector<SSTable> and std::unique_ptr<Memtable> need the wrapped classes to be defined.
+// Defined here rather than in the header because std::vector<SSTable> and std::unique_ptr<Memtable> need the wrapped
+// classes to be complete.
 InvertedIndex::~InvertedIndex() = default;
+InvertedIndex::InvertedIndex(InvertedIndex&&) noexcept = default;
 
 void InvertedIndex::Insert(const std::string_view term, const duckdb::row_t row_id,
                            const duckdb::QueryContext context) {
-    // TODO: Assert that row_id is non-decreasing globally. Memtable just checks within one partition.
+    D_ASSERT(memtable_);
+    D_ASSERT(row_id >= last_row_id_);
     if (IsNewRowGroup(row_id)) {
-        partitions_.push_back(memtable_->Seal(bm_, context));
-        memtable_->Reset();
+        SealActivePartition(context);
     }
     current_rowgroup_ = RowGroupOf(row_id);
+    last_row_id_ = row_id;
     memtable_->Insert(term, row_id);
 }
 
@@ -54,6 +60,7 @@ void InvertedIndex::Insert(const std::string_view term, const duckdb::row_t row_
 // merging is a plain concatenation without deduplication.
 std::vector<duckdb::row_t> InvertedIndex::Lookup(const std::string_view term,
                                                  const duckdb::QueryContext context) const {
+    D_ASSERT(memtable_);
     std::vector<duckdb::row_t> result;
     for (const SSTable& partition : partitions_) {
         const std::vector<duckdb::row_t> hits = partition.Lookup(term, context);
@@ -64,6 +71,69 @@ std::vector<duckdb::row_t> InvertedIndex::Lookup(const std::string_view term,
         result.insert(result.end(), hits.begin(), hits.end());
     }
     return result;
+}
+
+namespace {
+
+#if defined(D_ASSERT_IS_ENABLED) || !defined(NDEBUG) // only caller is a D_ASSERT
+//! Returns true if any partition of `lhs` covers a row ID that a partition of `rhs` also covers.
+bool RangesOverlap(const std::vector<SSTable>& lhs, const std::vector<SSTable>& rhs) {
+    std::size_t left = 0;
+    std::size_t right = 0;
+    // `lhs` and `rhs` are both ordered by row ID.
+    // Within one vector, the SSTables are internally disjoint.
+    // `lhs` and `rhs` can be interleaved.
+    while (left < lhs.size() && right < rhs.size()) {
+        if (lhs[left].MaxRowId() < rhs[right].MinRowId()) {
+            left++;
+        } else if (rhs[right].MaxRowId() < lhs[left].MinRowId()) {
+            right++;
+        } else {
+            // Overlapping if and only if lhs.MaxRowId() >= rhs.MinRowId() && rhs.MaxRowId() >= lhs.MinRowId()
+            return true;
+        }
+    }
+    return false;
+}
+#endif
+
+} // namespace
+
+// Called during Combine in index build
+void InvertedIndex::PairwiseMerge(InvertedIndex&& other, const duckdb::QueryContext context) {
+    D_ASSERT(this != &other);
+    D_ASSERT(duckdb::RefersToSameObject(bm_, other.bm_));
+    D_ASSERT(row_group_size_ == other.row_group_size_);
+
+    // Actually take `other` over, rather than only emptying it: the caller is left with a moved-from index whose
+    // Memtable is null, so every entry point that touches it trips its `D_ASSERT(memtable_)`.
+    InvertedIndex source(std::move(other));
+
+    SealActivePartition(context);
+    source.SealActivePartition(context);
+
+    // If the two InvertedIndexes had overlapping partitions, we would need to merge the postings lists instead of
+    // simply the list of partitions. Fortunately, the index build assigns whole row groups to a task, so no two tasks
+    // ever produce a partition with rows from the same row group.
+    D_ASSERT(!RangesOverlap(partitions_, source.partitions_));
+
+    // Every task of the index build is assigned arbitrary row groups, so the partitions from both indexes can be
+    // interleaved. For example, thread A can build an index for row groups {0,2,5} while thread B gets {1,3,4}. Both
+    // halves are already ordered, so merging them beats sorting the concatenation (std::sort).
+    // std::inplace_merge would avoid the temporary vector while std::merge requires fewer move operations.
+    // Neither really matters for a handful of partitions per merge.
+    // Ultimately it was a stylistic choice because I didn't want to make SSTable move-assignable (would be needed for
+    // std::inplace_merge).
+    std::vector<SSTable> merged;
+    merged.reserve(partitions_.size() + source.partitions_.size());
+    std::merge(std::make_move_iterator(partitions_.begin()),
+               std::make_move_iterator(partitions_.end()),
+               std::make_move_iterator(source.partitions_.begin()),
+               std::make_move_iterator(source.partitions_.end()),
+               std::back_inserter(merged),
+               [](const SSTable& lhs, const SSTable& rhs) { return lhs.MinRowId() < rhs.MinRowId(); });
+    partitions_ = std::move(merged);
+    last_row_id_ = std::max(last_row_id_, source.last_row_id_);
 }
 
 std::size_t InvertedIndex::NumSealedPartitions() const {
@@ -82,6 +152,23 @@ duckdb::idx_t InvertedIndex::RowGroupOf(const duckdb::row_t row_id) const {
 bool InvertedIndex::IsNewRowGroup(const duckdb::row_t row_id) const {
     // A jump across several row groups still seals only once, hence empty intermediate partitions are never created.
     return current_rowgroup_.IsValid() && RowGroupOf(row_id) != current_rowgroup_.GetIndex();
+}
+
+void InvertedIndex::SealActivePartition(const duckdb::QueryContext context) {
+    D_ASSERT(memtable_);
+    // A partition whose documents produced no terms at all leaves the Memtable empty. No need to create an empty
+    // SSTable from it.
+    if (memtable_->DictionarySize() != 0) {
+        SSTable partition = memtable_->Seal(bm_, context);
+        D_ASSERT(partitions_.empty() || partitions_.back().MaxRowId() < partition.MinRowId());
+        // Insert seals on every row-group change, so a partition never straddles a boundary. `PairwiseMerge` depends on
+        // it: partitions of two indexes are disjoint only because each one stays within a single row group.
+        D_ASSERT(RowGroupOf(partition.MinRowId()) == RowGroupOf(partition.MaxRowId()));
+        partitions_.push_back(std::move(partition));
+        memtable_->Reset();
+    }
+    // The next Insert has to open a new partition because, once sealed, a partition in a SSTable is immutable.
+    current_rowgroup_ = duckdb::optional_idx();
 }
 
 } // namespace logsearch::inverted_index

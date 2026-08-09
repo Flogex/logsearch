@@ -46,8 +46,8 @@ public:
     //! Returns the number of terms in the dictionary of this index.
     [[nodiscard]] std::size_t DictionarySize() const;
 
-    //! Seal this (full) Memtable into an immutable SSTable. This does not modify the Memtable.
-    //! Call Reset() afterwards to reuse it for the next partition.
+    //! Seal this (non-empty) Memtable into an immutable SSTable. This does not modify the Memtable.
+    //! Call Reset() afterward to reuse it for the next partition.
     [[nodiscard]] SSTable Seal(duckdb::BufferManager& buffer_manager, duckdb::QueryContext context = {}) const;
 
     //! Clears the dictionary and postings lists.

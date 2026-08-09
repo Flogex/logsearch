@@ -80,9 +80,9 @@ public:
     // Non-copyable (owns block handles + a BufferManager reference)
     SSTable(const SSTable&) = delete;
     SSTable& operator=(const SSTable&) = delete;
-    // Movable so it can live in a std::vector.
-    SSTable(SSTable&&) = default;
-    // BufferManager& member can't be rebound and move-constructor is enough for std::vector.
+    // Movable so partitions can be built locally and merged into a container.
+    SSTable(SSTable&&) noexcept = default;
+    // BufferManager& member can't be rebound and move-constructor is enough.
     SSTable& operator=(SSTable&&) = delete;
     ~SSTable() = default;
 
@@ -132,5 +132,8 @@ private:
     duckdb::idx_t block_size_;
     SSTableHeader header_;
 };
+
+// Assert move constructor is noexcept because from C++ 20 it wouldn't be a compile-time error anymore.
+static_assert(std::is_nothrow_move_constructible_v<SSTable>);
 
 } // namespace logsearch::inverted_index
