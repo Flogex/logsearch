@@ -1,0 +1,45 @@
+name: Install Ninja
+description: >-
+  Install an upstream Ninja release binary, verified against a pinned SHA-256.
+
+runs:
+  using: composite
+  steps:
+    - name: Download, verify and install Ninja
+      shell: bash
+      env:
+        # Ninja publishes digests on the GitHub releases page. Bump them together with the version.
+        VERSION: "1.13.2"
+        SHA256_X86_64: "5749cbc4e668273514150a80e387a957f933c6ed3f5f11e03fb30955e2bbead6"
+        SHA256_AARCH64: "fd2cacc8050a7f12a16a2e48f9e06fca5c14fc4c2bee2babb67b58be17a607fc"
+        # Already on PATH.
+        BIN_DIR: /usr/local/bin
+      run: |
+        set -euxo pipefail
+        case "$(uname -m)" in
+          x86_64)
+            asset=ninja-linux.zip
+            sha=${SHA256_X86_64}
+            ;;
+          aarch64)
+            asset=ninja-linux-aarch64.zip
+            sha=${SHA256_AARCH64}
+            ;;
+          *)
+            echo "Unsupported architecture: $(uname -m)" >&2
+            exit 1
+            ;;
+        esac
+
+        tmp=$(mktemp -d)
+        "${GITHUB_WORKSPACE}/scripts/fetch_verified.sh" \
+          "https://github.com/ninja-build/ninja/releases/download/v${VERSION}/${asset}" \
+          "${sha}" \
+          "${tmp}/${asset}"
+
+        # Single-file archive.
+        unzip -q -o "${tmp}/${asset}" ninja -d "${tmp}"
+        sudo install -m 0755 "${tmp}/ninja" "${BIN_DIR}/ninja"
+        rm -rf "${tmp}"
+
+        "${BIN_DIR}/ninja" --version

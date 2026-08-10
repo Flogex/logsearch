@@ -1,0 +1,49 @@
+name: Install Clang
+description: >-
+  Install a Clang toolchain from apt.llvm.org. The archive signing key is pinned
+  by fingerprint and the installer script by SHA-256.
+
+inputs:
+  version:
+    description: LLVM major version to install, e.g. "20".
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Download, verify and run the apt.llvm.org installer
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        # apt.llvm.org serves llvm.sh unversioned, so an upstream edit shows up
+        # as a checksum mismatch here. The same content is tracked at
+        # https://github.com/opencollab/llvm-jenkins.debian.net/commits/master/llvm.sh.
+        LLVM_SH_SHA256: "03878e08f47b66cc95bc4b544b0db3c6d9ce8d60e6cf2492ae357984330a9eae"
+        # Primary fingerprint of the LLVM archive signing key (Sylvestre Ledru).
+        # A public key fingerprint, not a credential.
+        LLVM_KEY_FINGERPRINT: "6084F3CF814B57C1CF12EFD515CF4D18AF4F7421" # gitleaks:allow
+      run: |
+        set -euxo pipefail
+        tmp=$(mktemp -d)
+
+        # Place the signing key ourselves, from a pinned fingerprint. llvm.sh
+        # fetches it only when this file is missing and trusts whatever it
+        # gets, so doing it here is what closes the trust chain for every
+        # package apt subsequently installs from the repo.
+        "${GITHUB_WORKSPACE}/scripts/fetch_verified.sh" --no-verify \
+          https://apt.llvm.org/llvm-snapshot.gpg.key "${tmp}/apt.llvm.org.asc"
+        fingerprint=$(gpg --show-keys --with-colons "${tmp}/apt.llvm.org.asc" \
+          | awk -F: '$1 == "fpr" { print $10; exit }')
+        if [[ "${fingerprint}" != "${LLVM_KEY_FINGERPRINT}" ]]; then
+          echo "LLVM signing key fingerprint mismatch: got ${fingerprint}" >&2
+          exit 1
+        fi
+        sudo install -m 0644 "${tmp}/apt.llvm.org.asc" /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+
+        "${GITHUB_WORKSPACE}/scripts/fetch_verified.sh" \
+          https://apt.llvm.org/llvm.sh "${LLVM_SH_SHA256}" "${tmp}/llvm.sh"
+        chmod +x "${tmp}/llvm.sh"
+        sudo "${tmp}/llvm.sh" "${VERSION}"
+        rm -rf "${tmp}"
+
+        "clang-${VERSION}" --version

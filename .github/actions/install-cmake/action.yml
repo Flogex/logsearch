@@ -1,0 +1,51 @@
+name: Install CMake
+description: >-
+  Install an upstream Kitware CMake release, verified against a pinned SHA-256,
+  and prepend it to PATH. Used instead of the runner's preinstalled CMake so
+  every job builds with the same version.
+
+runs:
+  using: composite
+  steps:
+    - name: Download, verify and install CMake
+      shell: bash
+      env:
+        # Kitware publishes the digests next to the release as
+        # cmake-<version>-SHA-256.txt. Bump them together with the version.
+        VERSION: "4.4.2"
+        SHA256_X86_64: "3ada9a3f5d8a85413579bdd0ea6aa8e8da86efdd6d15c91a1afa517f2021956c"
+        SHA256_AARCH64: "9ca1aadb4451c5dcbdc67f9b4aff42dab52abbaebd8db9e2900026502dbed671"
+        INSTALL_PREFIX: /opt/cmake
+      run: |
+        set -euxo pipefail
+        case "$(uname -m)" in
+          x86_64)
+            arch=linux-x86_64
+            sha=${SHA256_X86_64}
+            ;;
+          aarch64)
+            arch=linux-aarch64
+            sha=${SHA256_AARCH64}
+            ;;
+          *)
+            echo "Unsupported architecture: $(uname -m)" >&2
+            exit 1
+            ;;
+        esac
+
+        tmp=$(mktemp -d)
+        archive="cmake-${VERSION}-${arch}.tar.gz"
+        "${GITHUB_WORKSPACE}/scripts/fetch_verified.sh" \
+          "https://github.com/Kitware/CMake/releases/download/v${VERSION}/${archive}" \
+          "${sha}" \
+          "${tmp}/${archive}"
+
+        # --strip-components=1 drops the cmake-<version>-<arch>/ prefix so the
+        # tree lands as <prefix>/{bin,share,doc}.
+        sudo mkdir -p "${INSTALL_PREFIX}"
+        sudo tar -xzf "${tmp}/${archive}" -C "${INSTALL_PREFIX}" --strip-components=1
+        rm -rf "${tmp}"
+
+        # PATH exports only take effect in later steps, so verify by full path.
+        "${INSTALL_PREFIX}/bin/cmake" --version
+        echo "${INSTALL_PREFIX}/bin" >> "$GITHUB_PATH"

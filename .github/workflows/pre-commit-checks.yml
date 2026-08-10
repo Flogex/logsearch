@@ -1,0 +1,55 @@
+name: Pre-commit checks
+
+# Runs the full pre-commit hook suite. PR-only: main is updated exclusively via
+# reviewed PRs, so every hook already ran before merge (add `push: branches:
+# [main]` as a backstop if direct pushes to main are ever possible).
+on:
+  pull_request:
+
+# Least privilege: the hooks only read the checkout.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pre-commit:
+    name: Pre-commit hooks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      # Keep in sync with the gitleaks hook rev in .pre-commit-config.yaml.
+      GITLEAKS_VERSION: "8.30.1"
+      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      # Run every hook except gitleaks. The upstream gitleaks hook scans only
+      # staged changes (`--staged`), which is empty in a CI checkout, so it would
+      # be a no-op here; we run an effective working-tree scan below instead.
+      - uses: pre-commit/action@v3.0.1
+        env:
+          SKIP: gitleaks
+
+      # Pinned, checksum-verified official binary (no org license, no third-party
+      # GitHub App).
+      - name: Install gitleaks
+        run: |
+          set -euxo pipefail
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          wget -qO "/tmp/${tarball}" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${tarball}"
+          echo "${GITLEAKS_SHA256}  /tmp/${tarball}" | sha256sum --check --strict
+          tar -xzf "/tmp/${tarball}" -C /tmp gitleaks
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      # Effective secret scan of the branch contents. Exits non-zero on findings.
+      - name: Scan for secrets
+        run: gitleaks dir . --redact --verbose

@@ -11,7 +11,7 @@ FetchContent_MakeAvailable(Catch2)
 
 add_executable(
   unittests
-  test_basic.cpp
+  test_basic.test.cpp
   analyzer/lowercaser.test.cpp
   analyzer/pipeline.test.cpp
   analyzer/stopword_filter.test.cpp
@@ -50,6 +50,11 @@ target_link_libraries(
     core_functions_extension
     Catch2::Catch2WithMain
 )
+
+# Same curated warnings as the extension targets. DuckDB and Catch2 headers are
+# included as SYSTEM (above / via FetchContent), so their warnings stay suppressed;
+# only our test sources are checked.
+logsearch_apply_warnings(unittests)
 
 list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
 include(Catch)
