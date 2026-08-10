@@ -54,6 +54,24 @@
       "cacheVariables": {
         "ENABLE_LINTING": "ON"
       }
+    },
+    {
+      "name": "release-ci",
+      "inherits": "release",
+      "description": "Release build with warnings as errors, no linting (compile-only CI matrix)",
+      "binaryDir": "${sourceDir}/build/release-ci",
+      "cacheVariables": {
+        "ENABLE_WERROR": "ON"
+      }
+    },
+    {
+      "name": "debug-ci",
+      "inherits": "debug",
+      "description": "Debug build with ASan/UBSan and linting enabled (CI test cell)",
+      "binaryDir": "${sourceDir}/build/debug-ci",
+      "cacheVariables": {
+        "ENABLE_LINTING": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -72,6 +90,14 @@
     {
       "configurePreset": "release-lint",
       "name": "release-lint"
+    },
+    {
+      "configurePreset": "release-ci",
+      "name": "release-ci"
+    },
+    {
+      "configurePreset": "debug-ci",
+      "name": "debug-ci"
     }
   ],
   "cmakeMinimumRequired": {

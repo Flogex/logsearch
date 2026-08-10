@@ -1,0 +1,169 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same PR branch. Never cancel pushes to main.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Compile-only coverage: build the extension (Release, warnings-as-errors, no
+  # linting) across compilers/arches to catch as many diagnostics as possible.
+  # Each cell exercises a distinct warning engine / stdlib / arch:
+  #   clang-22 x86, clang-20 x86 (pinned dev), clang-22 arm64,
+  #   gcc-15 x86 (recent, N-1 major to keep -Werror stable), gcc-10 x86+arm64
+  #   (DuckDB's manylinux/devtoolset floor; only installable on 22.04).
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: clang-22 (x86_64)
+            os: ubuntu-24.04
+            install: llvm
+            compiler_version: "22"
+            cc: clang-22
+            cxx: clang++-22
+          - name: clang-20 (x86_64)
+            os: ubuntu-24.04
+            install: llvm
+            compiler_version: "20"
+            cc: clang-20
+            cxx: clang++-20
+          - name: clang-22 (arm64)
+            os: ubuntu-24.04-arm
+            install: llvm
+            compiler_version: "22"
+            cc: clang-22
+            cxx: clang++-22
+          - name: gcc-15 (x86_64)
+            os: ubuntu-24.04
+            install: gcc-ppa
+            compiler_version: "15"
+            cc: gcc-15
+            cxx: g++-15
+          - name: gcc-10 (x86_64, DuckDB floor)
+            os: ubuntu-22.04
+            install: gcc-distro
+            compiler_version: "10"
+            cc: gcc-10
+            cxx: g++-10
+          - name: gcc-10 (arm64, DuckDB floor)
+            os: ubuntu-22.04-arm
+            install: gcc-distro
+            compiler_version: "10"
+            cc: gcc-10
+            cxx: g++-10
+    env:
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Clang ${{ matrix.compiler_version }}
+        if: matrix.install == 'llvm'
+        uses: ./.github/actions/install-clang
+        with:
+          version: ${{ matrix.compiler_version }}
+
+      - name: Install GCC ${{ matrix.compiler_version }} (ubuntu-toolchain-r PPA)
+        if: matrix.install == 'gcc-ppa'
+        run: |
+          set -euxo pipefail
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends g++-${{ matrix.compiler_version }}
+
+      - name: Install GCC ${{ matrix.compiler_version }} (distro)
+        if: matrix.install == 'gcc-distro'
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends g++-${{ matrix.compiler_version }}
+
+      # Pinned upstream release binaries rather than whatever the runner image
+      # preinstalls: keeps every matrix cell on the same versions.
+      - name: Install CMake
+        uses: ./.github/actions/install-cmake
+
+      - name: Install Ninja
+        uses: ./.github/actions/install-ninja
+
+      - name: Install just
+        uses: ./.github/actions/install-just
+
+      - name: Set up ccache
+        uses: ./.github/actions/ccache
+        with:
+          key: ${{ matrix.os }}-${{ matrix.cc }}
+
+      # Only the extension target: skips DuckDB's unittest binary, Catch2, and our
+      # unit tests (not needed for warning coverage). DuckDB itself is still built
+      # (EXTENSION_STATIC_BUILD embeds libduckdb_static into the loadable .so).
+      - name: Build (Release, -Werror)
+        run: just build release-ci logsearch_loadable_extension
+
+      - name: Show ccache statistics
+        if: ${{ !cancelled() }}
+        run: ccache --show-stats
+
+  # Runtime coverage: build the extension + DuckDB + tests with clang-20 in Debug
+  # under ASan/UBSan and with clang-tidy + cppcheck enabled, then run both test
+  # suites. This is the single linting/sanitizer cell.
+  unittest:
+    name: Unit + SQLLogic (clang-20, Debug, ASan/UBSan, lint)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CC: clang-20
+      CXX: clang++-20
+      # LSan is whole-process and flags DuckDB's intentional exit-time allocations.
+      # Disable leak detection; keep ASan memory-error + UBSan.
+      ASAN_OPTIONS: detect_leaks=0
+      UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Clang 20
+        uses: ./.github/actions/install-clang
+        with:
+          version: "20"
+
+      - name: Install linters (clang-tidy, cppcheck)
+        run: |
+          set -euxo pipefail
+          sudo apt-get install -y --no-install-recommends clang-tidy-20 cppcheck
+          # ENABLE_LINTING resolves clang-tidy on PATH under its unversioned name.
+          sudo ln -sf /usr/bin/clang-tidy-20 /usr/local/bin/clang-tidy
+          clang-tidy --version
+
+      - name: Install CMake
+        uses: ./.github/actions/install-cmake
+
+      - name: Install Ninja
+        uses: ./.github/actions/install-ninja
+
+      - name: Install just
+        uses: ./.github/actions/install-just
+
+      - name: Set up ccache
+        uses: ./.github/actions/ccache
+        with:
+          key: unittest-clang-20
+
+      - name: Unit tests (Catch2)
+        run: just test debug-ci
+
+      - name: SQLLogic tests
+        run: just test-sqllogic debug-ci
+
+      - name: Show ccache statistics
+        if: ${{ !cancelled() }}
+        run: ccache --show-stats

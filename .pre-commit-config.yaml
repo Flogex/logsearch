@@ -22,6 +22,12 @@ repos:
       - id: check-merge-conflict
         name: Check for merge conflict markers
 
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+        name: Scan for hardcoded secrets
+
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: v0.11.0.1
     hooks:

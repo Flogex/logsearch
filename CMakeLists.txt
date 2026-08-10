@@ -7,11 +7,13 @@ set(EXTENSION_NAME logsearch_extension)
 set(LOADABLE_EXTENSION_NAME logsearch_loadable_extension)
 
 option(ENABLE_LINTING "Run clang-tidy and cppcheck on extension targets during build" OFF)
+option(ENABLE_WERROR "Treat warnings on logsearch targets as errors. Implied by ENABLE_LINTING" OFF)
 option(LOGSEARCH_ENABLE_ASAN "Build with AddressSanitizer" OFF)
 option(LOGSEARCH_ENABLE_UBSAN "Build with UndefinedBehaviorSanitizer" OFF)
 
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/linters.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/sanitizers.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/warnings.cmake)
 
 # We set DUCKDB_EXTENSION_CONFIGS before adding DuckDB as subdirectory.
 # DuckDB reads extension_config.cmake and calls add_subdirectory again to load this directory.

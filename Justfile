@@ -12,11 +12,19 @@ configure preset="release":
         cmake --preset {{preset}} {{extra_flags}}
     fi
 
-# Build any preset (release/debug/reldebinfo). Configures CMake if needed.
+# Build a preset; configures if needed. Trailing targets restrict the build (default: all).
 [group("build")]
 [default]
-build preset="release": (configure preset)
-    cmake --build --preset {{preset}}
+build preset="release" *targets: (configure preset)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # e.g. `just build release-ci logsearch_loadable_extension` compiles only the extension,
+    # skipping DuckDB's unittest binary, Catch2, and our unit tests.
+    if [ -n "{{targets}}" ]; then
+        cmake --build --preset {{preset}} --target {{targets}}
+    else
+        cmake --build --preset {{preset}}
+    fi
 
 # Force CMake reconfigure for a preset, then build.
 [group("build")]
@@ -32,10 +40,10 @@ test preset="release" *args: (build preset)
     set -euf -o pipefail
     {{build_dir}}/{{preset}}/test/unittests {{args}}
 
-# Run SQLLogicTests for the logsearch extension.
+# Run SQLLogicTests for the logsearch extension. Preset selects the build (release/debug-ci/...).
 [group("test")]
-test-sqllogic: (build "release")
-    {{build_dir}}/release/_deps/duckdb-build/test/unittest "*logsearch/test/sql/*"
+test-sqllogic preset="release": (build preset)
+    {{build_dir}}/{{preset}}/_deps/duckdb-build/test/unittest "*logsearch/test/sql/*"
 
 # Run clang-tidy on extension sources without building.
 [group("lint")]
