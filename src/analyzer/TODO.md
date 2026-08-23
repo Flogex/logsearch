@@ -2,9 +2,6 @@
 
 - `TermCollector` is a dummy sink. The analyzer pipeline should be integrated into the rest of the extension.
 - The `Tokenizer` currently only splits on whitespace. It should also split on punctuation (commas, periods, colons).
-- If we keep the `StopwordFilter`, it should be configurable and be able to filter out words longer than eight characters.
-  If the stopword list grows beyond 50 or so words, we should switch from a linear scan to a more efficient data structure
-  (e.g., buckets by length, binary search or a frozen perfect hash).
 - Potentially implement a Porter stemmer. I think this is a modification that can be done in-place: Even though some
   steps grow the string (e.g. at→ate), the original capacity is never exceeded.
 - Implement the Unicode path (NFKC normalize → Unicode case fold → ASCII fold → tokenize), probably using utf8proc.

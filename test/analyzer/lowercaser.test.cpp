@@ -1,7 +1,6 @@
 #include "analyzer/lowercaser.hpp"
 
 #include "analyzer/mutable_span.hpp"
-#include "analyzer/stopword_filter.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <string>

@@ -22,9 +22,8 @@ The Unicode path is not implemented yet.
               ↓                 │              [TODO] AsciiFold    │
         Tokenizer               │              [TODO] UnicodeLower │
               ↓                 │              ...                 │
-        StopwordFilter          │              throws              │
-              ↓                 │              NotImplemented      │
-        TermCollector           │                                  │
+        TermCollector           │              throws              │
+                                │              NotImplemented      │
                                 └──────────────────────────────────┘
                                           ↓
                                 vector<string> output
@@ -37,14 +36,49 @@ and give SIMD operations a large contiguous byte range to operate on.
 For Unicode specifically, NFKC can change whitespace bytes and therefore needs to run before tokenization.
 Therefore, the document is only split into tokens once it has been normalized and casefolded.
 
-After tokenization, we should filter out tokens before processing them further and put the cheaper filters first.
-For example, if we introduce a length-based filter in the future, this should run before the `StopwordFilter`.
-If we add a stemmer, this operation should come last as it is the most CPU-intensive per-token work.
+The stages generally should be able to assume that previous stages have run.
+For instance, the Tokenizer is only ever handed a document the Lowercaser has already folded.
 
-The pipeline stages assume that previous stages have run.
-For example, all stopwords are in lowercase.
-Also, the `StopwordFilter` needs to run before the stemmer.
-Otherwise, a word like "beings" with stem "be" will get filtered out.
+## Usage for both Ingestion and Retrieval
+
+... and why a stopword filter cannot live in the analyzer.
+
+The analyzer is used on documents that are inserted into the inverted index and on query tokens ("search terms").
+To get correct results, it is important that the document tokens and query tokens are normalized in the same way.
+The analyzer should not make decisions about which terms get stored (stopword filter, maximum length filter), i.e., not
+drop any terms.
+
+Generally speaking, a stage of the analyzer can collapse a token, delete it, or expand it into multiple tokens.
+Examples for each category, most of them not implemented in our analyzer:
+
+- Collapse (the mapping is not injective because multiple tokens can be mapped to the same output):
+  stemming (being -> be), accent/case folding (Ḟøłɖǐṅg -> folding), truncation of long tokens
+- Delete: stopword filter or length filter drop the token completely
+- Expand: synonyms, CommonGrams, N-grams, ReverseString (indexing the reversed token as well, so that a suffix lookup
+  becomes a prefix lookup) emit several tokens for one input
+
+Collapsing can lead to false-positive index matches, so for operations that require strict comparisons (e.g. `contains`,
+`=`, or `match_type := 'exact'`) the index only produces a candidate set on which the actual filter is applied.
+Expanding is harmless: it adds terms, costing space but never a match.
+Deleting is the problem, because the index cannot distinguish "this token was dropped by the analyzer" from "this token
+was never seen in the corpus" unless it records what it dropped.
+When nothing gets dropped, a term missing from the dictionary proves that no row contains it, and the scan can be
+skipped entirely.
+
+Deleting is worse still on the query side, where a token can become empty.
+In non-exact mode, `contains_token(col, t)` is defined as "the analyzed value of `col` contains the analyzed `t`", i.e.,
+the analyzer runs on both sides and then both sides are matches.
+Searching for "the" (a stopword) would therefore return TRUE for every document, because `t` analyzes to no token at all
+and containing none of them is trivially true.
+By that definition the result is not incorrect, but a filter that silently matches everything is undesired behavior.
+
+There is still value in filters that reduce storage cost.
+A maximum length filter could keep garbage such as binary blobs out of the index, and a stopword filter could drop the
+most common terms which would be answered by a full table scan anyway.
+Truncation is usually the better tool than a length filter, because it collapses instead of deletes.
+But this is a policy decision for the index, not the analyzer: it needs corpus-wide term counts that the analyzer never
+sees, and the query side must be able to reproduce or look up the decision.
+The only cost is just that the analyzer processes such tokens without exiting early.
 
 ## Coding Practices
 

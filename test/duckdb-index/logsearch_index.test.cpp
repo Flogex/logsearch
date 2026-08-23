@@ -125,9 +125,9 @@ TEST_CASE_METHOD(LogsearchIndexFixture, "An index on an empty table is empty", "
 
 TEST_CASE_METHOD(LogsearchIndexFixture, "A index stays empty when inserting documents without any term",
                  "[duckdb_index]") {
-    // Empty, whitespace-only and stopword-only documents all analyze to zero terms, so the Memtable stays empty and
-    // must not be sealed into an SSTable without any row ID.
-    Query("CREATE TABLE logs AS SELECT * FROM (VALUES (''), ('   '), ('the to was')) t(message)");
+    // Empty and whitespace-only documents analyze to zero terms, so the Memtable stays empty and must not be
+    // sealed into an SSTable without any row ID.
+    Query("CREATE TABLE logs AS SELECT * FROM (VALUES (''), ('   '), (E'\\t\\n')) t(message)");
     Query("CREATE INDEX msg_idx ON logs USING logsearch (message)");
 
     const InvertedIndex& index = IndexOf("logs", "msg_idx");
@@ -191,17 +191,6 @@ TEST_CASE_METHOD(LogsearchIndexFixture, "Indexed terms are lowercased by the ana
     const InvertedIndex& index = IndexOf("logs", "msg_idx");
     CHECK_THAT(index.Lookup("connection"), Equals(std::vector<row_t>{0}));
     CHECK_THAT(index.Lookup("refused"), Equals(std::vector<row_t>{0}));
-}
-
-TEST_CASE_METHOD(LogsearchIndexFixture, "Stopwords are not indexed", "[duckdb_index]") {
-    Query("CREATE TABLE logs AS SELECT * FROM (VALUES ('the disk was full')) t(message)");
-    Query("CREATE INDEX msg_idx ON logs USING logsearch (message)");
-
-    const InvertedIndex& index = IndexOf("logs", "msg_idx");
-    CHECK(index.Lookup("the").empty());
-    CHECK(index.Lookup("was").empty());
-    CHECK_THAT(index.Lookup("disk"), Equals(std::vector<row_t>{0}));
-    CHECK_THAT(index.Lookup("full"), Equals(std::vector<row_t>{0}));
 }
 
 TEST_CASE_METHOD(LogsearchIndexFixture, "A term repeated within one document yields a single row ID",
