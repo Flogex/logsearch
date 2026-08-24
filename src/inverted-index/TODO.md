@@ -10,7 +10,6 @@
   `Lookup` currently materializes a `std::vector<row_t>` per partition and the query path concatenates them.
 - SSTable: dictionary sparse index (anchor every k-th entry) — needed once front coding breaks direct binary search.
 - SSTable: resident dictionary (keep the dict blocks pinned, or decode once into memory) if `Lookup` proves hot.
-- Analyzer: cap token length so `term_length` always fits `uint32` (a longer term currently truncates in `Build`).
 - Throw (not `D_ASSERT`) if the dynamically configured row group size makes `postings_count` exceed `uint32`
   (see "Dynamic row group size").
 - Cap the Memtable size.
@@ -183,12 +182,6 @@ upgrade. This is the one real footgun in Tier 1, which is otherwise free.
 - Measure the win first. The top-k terms' share of total postings entries, and the token-length histogram, are both
   computable from a real corpus with the counts the build already collects. Front coding and the sparse dictionary
   index — both listed above — buy dictionary space without giving up any lookup, and should be exhausted first.
-
-### Not to be confused with the `uint32` term-length cap
-
-The "cap token length so `term_length` always fits `uint32`" item above is a **correctness** bug at a 4 GB format
-boundary, not a space policy. A format limit must throw or truncate loudly; a space policy is a tunable that has to
-be reproducible at query time. Keep them separate.
 
 One thing that needs no new handling: a document whose every term is excluded contributes nothing to the index,
 which is the same situation as an empty document — already covered by the "index stays empty when inserting

@@ -85,7 +85,7 @@ void WriteSSTableBytes(duckdb::WriteStream& out, const std::vector<TermPostings>
                 "SSTable string pool too large: term offset %llu does not fit in uint32_t", current_term_offset);
         }
         dict_entry.term_offset = static_cast<std::uint32_t>(current_term_offset);
-        // TODO: The analyzer must cap token length. Right now, a term longer than 4 GiB would get truncated.
+        // The analyzer's TermLengthGuard rejects anything longer, so this narrowing cannot truncate.
         D_ASSERT(term.size() <= std::numeric_limits<std::uint32_t>::max());
         dict_entry.term_length = static_cast<std::uint32_t>(term.size());
         // `postings_offset` narrows a cumulative postings-region offset to uint32 (same soft 4 GiB bound as the string

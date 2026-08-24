@@ -7,6 +7,7 @@
 #include "lowercaser.hpp"
 #include "mutable_span.hpp"
 #include "string_predicates.hpp"
+#include "term_length_guard.hpp"
 #include "tokenizer.hpp"
 
 #include <cstring>
@@ -38,14 +39,16 @@ public:
 //! ASCII fast path. Stage order:
 //! 1. Lowercaser (ASCII case fold, in place)
 //! 2. Tokenizer (whitespace split)
-//! 3. TermCollector
+//! 3. TermLengthGuard (rejects terms exceeding length limit)
+//! 4. TermCollector
 // cppcheck-suppress passedByValue ; MutableSpan is small enough to be copied
 void RunAsciiPipeline(MutableSpan doc, std::vector<std::string>& output) {
     // The analyzer chain that is fixed at compile-time. We don't have the flexibility to change the stage order at
     // runtime. But there are no virtual function calls and the compiler can optimize the whole pipeline.
     TermCollector collector(output);
-    Tokenizer<TermCollector> tokenizer(collector);
-    Lowercaser<Tokenizer<TermCollector>> chain(tokenizer);
+    TermLengthGuard<TermCollector> length_guard(collector);
+    Tokenizer<TermLengthGuard<TermCollector>> tokenizer(length_guard);
+    Lowercaser<Tokenizer<TermLengthGuard<TermCollector>>> chain(tokenizer);
     chain.ProcessDocument(doc);
 }
 

@@ -22,8 +22,9 @@ The Unicode path is not implemented yet.
               ↓                 │              [TODO] AsciiFold    │
         Tokenizer               │              [TODO] UnicodeLower │
               ↓                 │              ...                 │
-        TermCollector           │              throws              │
-                                │              NotImplemented      │
+        TermLengthGuard         │              throws              │
+              ↓                 │              NotImplemented      │
+        TermCollector           │                                  │
                                 └──────────────────────────────────┘
                                           ↓
                                 vector<string> output
