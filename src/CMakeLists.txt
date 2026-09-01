@@ -7,6 +7,7 @@ set(
   analyzer/analyzer_ub.cpp
   duckdb-index/duckdb_index_ub.cpp
   inverted-index/inverted_index_ub.cpp
+  scalars/scalars_ub.cpp
   storage/multi_block_writer.cpp
   logsearch_extension.cpp
 )

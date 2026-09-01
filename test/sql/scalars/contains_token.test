@@ -1,0 +1,237 @@
+# name: test/sql/scalars/contains_token.test
+# description: Tests for contains_token scalar function
+
+require logsearch
+
+statement ok
+CREATE TABLE logs (id INTEGER, msg VARCHAR);
+
+statement ok
+INSERT INTO logs VALUES
+    (1, 'connection refused for user alice'),
+    (2, 'Connection ESTABLISHED for user bob'),
+    (3, 'prefix refusedx suffix'),
+    (4, 'refused'),
+    (5, NULL),
+    (6, ''),
+    (7, '   ');
+
+query I
+SELECT id FROM logs WHERE contains_token(msg, 'refused') ORDER BY id;
+----
+1
+4
+
+# The token is the whole word: neither a prefix nor an infix of a longer token matches. This is the
+# difference from contains(), which matches any substring.
+# Note that the analyzer does not apply a stemmer.
+query III
+SELECT contains_token('prefix refusedx suffix', 'refused'),
+       contains_token('connection refused', 'refuse'),
+       contains_token('connection refused', 'efused');
+----
+0	0	0
+
+##### Normalization #####
+
+# The query argument is analyzed the same way a document is, so case does not matter on either side.
+query III
+SELECT contains_token('Connection ESTABLISHED for user bob', 'ESTABLISHED'),
+       contains_token('Connection ESTABLISHED for user bob', 'established'),
+       contains_token('connection refused for user alice', 'CoNnEcTiOn');
+----
+1	1	1
+
+##### Token boundaries #####
+
+# Every ASCII whitespace class separates tokens, and runs of it collapse. chr(11) is a vertical tab, which
+# has no escape sequence of its own.
+query I
+SELECT contains_token(E'tab\tseparated\tvalues', 'separated');
+----
+1
+
+query I
+SELECT contains_token('a' || E'\n' || 'b' || E'\r' || 'c' || E'\f' || 'd' || chr(11) || 'e', 'd');
+----
+1
+
+query I
+SELECT contains_token('  padded  ', 'padded');
+----
+1
+
+# Punctuation is not a boundary: the tokenizer only splits on whitespace.
+query III
+SELECT contains_token('disk full on host db01', 'db01'),
+       contains_token('error,401 path=/foo', 'error,401'),
+       contains_token('error,401 path=/foo', 'error');
+----
+1	1	0
+
+##### Common words #####
+
+# Nothing is filtered out, so a word like 'the' is an ordinary token.
+query II
+SELECT contains_token('the quick brown fox', 'the'),
+       contains_token('to be or not to be', 'not');
+----
+1	1
+
+##### Empty token #####
+
+# '' holds no token at all, so nothing is being asked for and every non-NULL document qualifies. This
+# matches SQL's contains(x, '') = true.
+query ITI
+SELECT id, msg, contains_token(msg, '')
+FROM (VALUES (1, 'connection refused'), (2, ''), (3, NULL)) t(id, msg) ORDER BY id;
+----
+1	connection refused	1
+2	(empty)	1
+3	NULL	NULL
+
+# Whitespace-only holds no token either.
+query II
+SELECT contains_token('anything', '   '), contains_token('', '');
+----
+1	1
+
+##### NULL #####
+
+query III
+SELECT contains_token(NULL, 'a'), contains_token('a b', NULL), contains_token(NULL, NULL);
+----
+NULL	NULL	NULL
+
+# NULL is not TRUE, so a WHERE clause drops the row rather than keeping it: the NULL document is counted by
+# neither the predicate nor its negation, which is why the two counts do not add up to the row count.
+query II
+SELECT count(*) FILTER (WHERE contains_token(msg, 'refused')),
+       count(*) FILTER (WHERE NOT contains_token(msg, 'refused'))
+FROM (VALUES ('connection refused'), ('disk full'), (NULL)) t(msg);
+----
+1	1
+
+##### Non-ASCII #####
+
+# The analyzer does not support non-ASCII yet and refuses rather than guessing. That holds on both sides: a
+# non-ASCII query token is rejected while the query is bound, a non-ASCII column value when the row is read.
+statement error
+SELECT contains_token('cafe serves latte', 'café');
+----
+does not yet support non-ASCII input
+
+statement error
+SELECT contains_token('café serves latte', 'serves');
+----
+does not yet support non-ASCII input
+
+statement error
+SELECT contains_all_tokens('cafe', ['cafe', 'café']);
+----
+does not yet support non-ASCII input
+
+##### Non-constant argument #####
+
+# Only a constant token is supported for now, so a column reference is rejected while the query is bound
+# rather than analyzed per row. Lifting this is what would make a join against a table of search terms work.
+statement ok
+CREATE TABLE needles (id INTEGER, needle VARCHAR);
+
+statement ok
+INSERT INTO needles VALUES (1, 'refused'), (2, 'REFUSED'), (3, 'refuse'), (4, ''), (5, NULL);
+
+statement error
+SELECT n.id, count(l.id) FROM needles n LEFT JOIN logs l ON contains_token(l.msg, n.needle) GROUP BY n.id;
+----
+contains_token only supports a constant second argument for now
+
+statement error
+SELECT contains_token('connection refused', needle) FROM needles;
+----
+contains_token only supports a constant second argument for now
+
+# Both arguments non-constant is the same rejection.
+statement error
+SELECT contains_token(msg, msg) FROM logs;
+----
+contains_token only supports a constant second argument for now
+
+# A constant expression still folds, so this is not a syntactic restriction.
+query I
+SELECT contains_token('connection refused', 'ref' || 'used');
+----
+1
+
+##### Contexts other than a scan filter #####
+
+# The function is complete on its own, so it works wherever an expression is allowed.
+query II
+SELECT id, contains_token(msg, 'user') FROM logs WHERE id <= 3 ORDER BY id;
+----
+1	1
+2	1
+3	0
+
+query II
+SELECT contains_token(msg, 'user') AS has_user, count(*) FROM logs
+GROUP BY has_user ORDER BY has_user NULLS LAST;
+----
+0	4
+1	2
+NULL	1
+
+query I
+SELECT count(*) FROM logs GROUP BY id HAVING bool_and(contains_token(msg, 'refused'));
+----
+1
+1
+
+statement ok
+CREATE VIEW refused AS SELECT id FROM logs WHERE contains_token(msg, 'refused');
+
+query I
+SELECT id FROM refused ORDER BY id;
+----
+1
+4
+
+query I
+WITH matched AS (SELECT id, contains_token(msg, 'connection') AS hit FROM logs)
+SELECT count(*) FROM matched WHERE hit;
+----
+2
+
+statement ok
+CREATE TABLE derived AS SELECT id, contains_token(msg, 'refused') AS hit FROM logs;
+
+query I
+SELECT count(*) FROM derived WHERE hit;
+----
+2
+
+##### Many rows #####
+
+statement ok
+CREATE TABLE big AS SELECT i AS id, 'message ' || i || ' status ok' AS msg FROM range(5000) t(i);
+
+query I
+SELECT count(*) FROM big WHERE contains_token(msg, 'status');
+----
+5000
+
+query I
+SELECT id FROM big WHERE contains_token(msg, '4999');
+----
+4999
+
+query I
+SELECT count(*) FROM big WHERE contains_token(msg, 'absent');
+----
+0
+
+# A selection vector reaches the function when another filter runs first.
+query I
+SELECT count(*) FROM big WHERE id % 7 = 0 AND contains_token(msg, 'ok');
+----
+715

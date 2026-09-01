@@ -1,0 +1,213 @@
+# name: test/sql/scalars/contains_all_any.test
+# description: contains_all_tokens and contains_any_tokens evaluated over a full scan
+
+require logsearch
+
+statement ok
+CREATE TABLE logs (id INTEGER, msg VARCHAR);
+
+statement ok
+INSERT INTO logs VALUES
+    (1, 'connection refused for user alice'),
+    (2, 'Connection ESTABLISHED for user bob'),
+    (3, 'disk full on host db01'),
+    (4, 'alice bob carol'),
+    (5, 'alice carol'),
+    (6, NULL),
+    (7, ''),
+    (8, 'the and of');
+
+##### contains_all_tokens: conjunction #####
+
+# Every element has to be present. Each of these is a claim about one string, so the string is inline.
+query IIII
+SELECT contains_all_tokens('alice bob carol', ['alice', 'bob']),
+       contains_all_tokens('alice carol', ['alice', 'bob']),
+       contains_all_tokens('alice bob carol', ['alice', 'bob', 'carol']),
+       contains_all_tokens('alice bob carol', ['alice', 'absent']);
+----
+1	0	1	0
+
+# A one-element list is the single-token predicate.
+query II
+SELECT contains_all_tokens('connection refused for user alice', ['alice']),
+       contains_token('connection refused for user alice', 'alice');
+----
+1	1
+
+# Case is normalized on both sides, and every element matches a whole token: no prefix, no infix.
+query III
+SELECT contains_all_tokens('connection refused for user alice', ['CONNECTION', 'User']),
+       contains_all_tokens('Connection ESTABLISHED for user bob', ['CONNECTION', 'User']),
+       contains_all_tokens('connection refused for user alice', ['connectio', 'user']);
+----
+1	1	0
+
+# It is exactly the conjunction of the single-token predicates, and that has to hold for every row rather
+# than only the matching ones. IS DISTINCT FROM rather than <> so that a row where both sides are NULL is
+# compared instead of silently dropped.
+query I
+SELECT count(*) FROM logs
+WHERE contains_all_tokens(msg, ['connection', 'user'])
+  IS DISTINCT FROM (contains_token(msg, 'connection') AND contains_token(msg, 'user'));
+----
+0
+
+##### contains_any_tokens: disjunction #####
+
+# One present element is enough; none present is false.
+query III
+SELECT contains_any_tokens('connection refused for user alice', ['refused', 'established']),
+       contains_any_tokens('alice carol', ['absent', 'carol']),
+       contains_any_tokens('alice carol', ['absent', 'missing']);
+----
+1	1	0
+
+query I
+SELECT count(*) FROM logs
+WHERE contains_any_tokens(msg, ['refused', 'carol'])
+  IS DISTINCT FROM (contains_token(msg, 'refused') OR contains_token(msg, 'carol'));
+----
+0
+
+##### Deduplication #####
+
+# Duplicates collapse on the normalized form, so a repeated element counts once. Checked over every row,
+# which covers the NULL and empty ones too.
+query I
+SELECT count(*) FROM logs
+WHERE contains_all_tokens(msg, ['alice', 'alice']) IS DISTINCT FROM contains_all_tokens(msg, ['alice']);
+----
+0
+
+query I
+SELECT count(*) FROM logs
+WHERE contains_any_tokens(msg, ['alice', 'ALICE', 'Alice']) IS DISTINCT FROM contains_any_tokens(msg, ['alice']);
+----
+0
+
+##### Empty lists #####
+
+# Each empty list follows the identity of its connective: all of zero conditions hold, none of zero does.
+query II
+SELECT contains_all_tokens('a b c', []), contains_any_tokens('a b c', []);
+----
+1	0
+
+# Over a whole column the all-variant therefore keeps every non-NULL row, including the empty string.
+query I
+SELECT id FROM logs WHERE contains_all_tokens(msg, []) ORDER BY id;
+----
+1
+2
+3
+4
+5
+7
+8
+
+##### Lists with empty/whitespace tokens #####
+
+# An element that analyzes to no token is satisfied by every document. For the any-variant it therefore
+# counts as one satisfied element, which is what makes [''] different from [].
+query II
+SELECT contains_all_tokens('a b c', ['']), contains_any_tokens('a b c', ['']);
+----
+1	1
+
+query II
+SELECT contains_all_tokens('a b c', ['   ']), contains_any_tokens('a b c', ['   ']);
+----
+1	1
+
+query I
+SELECT contains_all_tokens('a b c', ['', 'a']);
+----
+1
+
+query I
+SELECT contains_all_tokens('a b c', ['', 'z']);
+----
+0
+
+# For contains_any_tokens, one vacuous element is enough for the predicat to be TRUE.
+query I
+SELECT contains_any_tokens('a b c', ['', 'z']);
+----
+1
+
+# Every element vacuous, whatever the whitespace.
+query I
+SELECT contains_all_tokens('a b c', ['', '   ', E'\t']);
+----
+1
+
+##### NULL #####
+
+query IIII
+SELECT contains_all_tokens(NULL, ['a']), contains_all_tokens('a b', NULL),
+       contains_any_tokens(NULL, ['a']), contains_any_tokens('a b', NULL);
+----
+NULL	NULL	NULL	NULL
+
+# A NULL column value stays NULL even where the list decides the answer on its own: trivially satisfied,
+# trivially unsatisfiable, or vacuous. The NULL document wins over every identity, as it does in contains().
+query IIII
+SELECT contains_all_tokens(msg, []), contains_any_tokens(msg, ['']), contains_any_tokens(msg, []),
+       contains_all_tokens(msg, ['alice'])
+FROM (VALUES (NULL::VARCHAR)) t(msg);
+----
+NULL	NULL	NULL	NULL
+
+##### Common words #####
+
+# Nothing is filtered out (no stopword filter), so these are ordinary tokens.
+query II
+SELECT contains_all_tokens('the and of', ['the', 'and', 'of']),
+       contains_all_tokens('alice bob carol', ['the']);
+----
+1	0
+
+##### Contexts other than a scan filter #####
+
+query II
+SELECT id, contains_any_tokens(msg, ['alice', 'bob']) FROM logs WHERE id <= 4 ORDER BY id;
+----
+1	1
+2	1
+3	0
+4	1
+
+statement ok
+CREATE VIEW alice_and_carol AS SELECT id FROM logs WHERE contains_all_tokens(msg, ['alice', 'carol']);
+
+query I
+SELECT id FROM alice_and_carol ORDER BY id;
+----
+4
+5
+
+##### Many rows #####
+
+statement ok
+CREATE TABLE big AS SELECT i AS id, 'message ' || i || ' status ok' AS msg FROM range(5000) t(i);
+
+query I
+SELECT count(*) FROM big WHERE contains_all_tokens(msg, ['message', 'status', 'ok']);
+----
+5000
+
+query I
+SELECT count(*) FROM big WHERE contains_all_tokens(msg, ['message', 'absent']);
+----
+0
+
+query I
+SELECT id FROM big WHERE contains_all_tokens(msg, ['4999', 'ok']);
+----
+4999
+
+query I
+SELECT count(*) FROM big WHERE id % 7 = 0 AND contains_any_tokens(msg, ['status', 'absent']);
+----
+715

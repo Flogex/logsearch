@@ -1,6 +1,6 @@
 # Analyzer Pipeline
 
-The analyzer turns a document into a list of normalized terms ready to be written into the inverted index.
+The analyzer turns a document or query into a list of normalized terms ready to be written into the inverted index.
 The public interface is the `Pipeline::Run` function in `pipeline.hpp`.
 Everything else is an "implementation detail".
 

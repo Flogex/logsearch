@@ -1,0 +1,158 @@
+# name: test/sql/scalars/token_predicate_errors.test
+# description: Rejected arguments of the token predicates, at bind time and at execution time
+
+require logsearch
+
+statement ok
+CREATE TABLE logs (id INTEGER, msg VARCHAR);
+
+statement ok
+INSERT INTO logs VALUES (1, 'connection refused'), (2, 'alice bob carol'), (3, NULL);
+
+##### An argument holding more than one token #####
+
+# There is nothing else it could mean: an implicit AND already has its own function, so the message points
+# at it rather than guessing.
+statement error
+SELECT contains_token(msg, 'connection refused') FROM logs;
+----
+contains_token only accepts a single token per argument, but 'connection refused' analyzes to more than one
+
+# The list variants point at the list instead, since that is where the fix goes.
+statement error
+SELECT contains_all_tokens(msg, ['alice bob']) FROM logs;
+----
+contains_all_tokens only accepts a single token per argument, but 'alice bob' analyzes to more than one
+
+statement error
+SELECT contains_any_tokens(msg, ['alice', 'bob carol']) FROM logs;
+----
+contains_any_tokens only accepts a single token per argument, but 'bob carol' analyzes to more than one
+
+# Any whitespace class separates, so any of them makes an argument multi-token.
+statement error
+SELECT contains_token(msg, E'a\tb') FROM logs;
+----
+only accepts a single token per argument
+
+statement error
+SELECT contains_token(msg, E'a\nb') FROM logs;
+----
+only accepts a single token per argument
+
+# Leading and trailing whitespace is trimmed rather than rejected: it produces one token, not two. The
+# trimmed argument has to behave exactly like the bare token, which also rules out it analyzing to nothing.
+query III
+SELECT id, contains_token(msg, '  refused  '), contains_token(msg, 'refused') FROM logs ORDER BY id;
+----
+1	1	1
+2	0	0
+3	NULL	NULL
+
+##### NULL inside a list #####
+
+# "Does this document contain NULL" has no useful answer, and returning NULL would silently swallow a
+# malformed query.
+statement error
+SELECT contains_all_tokens(msg, ['alice', NULL]) FROM logs;
+----
+contains_all_tokens does not accept NULL as a list element
+
+statement error
+SELECT contains_any_tokens(msg, [NULL]) FROM logs;
+----
+contains_any_tokens does not accept NULL as a list element
+
+# A NULL list is a different thing from a list holding NULL, and propagates instead.
+query I
+SELECT contains_all_tokens(msg, NULL) FROM logs LIMIT 1;
+----
+NULL
+
+##### Non-constant argument #####
+
+# Only a constant query argument is supported for now, so there is no execution-time analysis and every
+# argument error above is a bind-time error. A column reference is rejected outright.
+statement ok
+CREATE TABLE queries (token VARCHAR, tokens VARCHAR[]);
+
+statement ok
+INSERT INTO queries VALUES ('alice bob', ['alice bob']);
+
+statement error
+SELECT contains_token(msg, q.token) FROM logs, queries q;
+----
+contains_token only supports a constant second argument for now
+
+statement error
+SELECT contains_all_tokens(msg, q.tokens) FROM logs, queries q;
+----
+contains_all_tokens only supports a constant second argument for now
+
+statement error
+SELECT contains_any_tokens(msg, q.tokens) FROM logs, queries q;
+----
+contains_any_tokens only supports a constant second argument for now
+
+# A `?` is not constant when the statement is prepared, so it is rejected there rather than at EXECUTE.
+# This means that prepared statements cannot take the token as a parameter yet.
+statement error
+PREPARE find AS SELECT count(*) FROM logs WHERE contains_token(msg, ?);
+----
+contains_token only supports a constant second argument for now
+
+# A constant expression still folds.
+query II
+SELECT contains_all_tokens('alice bob', ['ali' || 'ce', 'bob']), contains_any_tokens('alice bob', list_value('bob'));
+----
+1	1
+
+##### Wrong types and arities #####
+
+statement error
+SELECT contains_token(msg) FROM logs;
+----
+No function matches
+
+statement error
+SELECT contains_token(msg, 'a', 'b') FROM logs;
+----
+No function matches
+
+# VARCHAR is implicitly castable to VARCHAR[], so this binds, but DuckDB still throws a conversion error because it
+# cannot convert 'alice' to a list.
+statement error
+SELECT contains_all_tokens(msg, 'alice') FROM logs;
+----
+'alice' can't be cast to the destination type VARCHAR[]
+
+# This cast from VARCHAR to VARCHAR[] succeeds.
+query I
+SELECT contains_all_tokens('alice and bob', '[alice, bob]');
+----
+1
+
+# An INTEGER[] is not implicitly castable to VARCHAR[], so it is rejected rather than stringified.
+statement error
+SELECT contains_all_tokens('log 42 entry', [42]);
+----
+contains_all_tokens(string VARCHAR, tokens VARCHAR[]) -> BOOLEAN
+
+query I
+SELECT contains_all_tokens('log 42 entry', [42]::VARCHAR[]);
+----
+1
+
+##### Boolean short-circuing does not defeat argument validation #####
+
+# Binding happens before anything can be short-circuited or folded away, so a bad argument is still reported
+# even in a branch that could never be evaluated.
+statement error
+SELECT id FROM logs WHERE false AND contains_token(msg, 'two tokens');
+----
+contains_token only accepts a single token per argument
+
+statement error
+SELECT id FROM logs WHERE true OR contains_token(msg, 'two tokens');
+----
+contains_token only accepts a single token per argument

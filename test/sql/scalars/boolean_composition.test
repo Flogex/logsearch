@@ -1,0 +1,212 @@
+# name: test/sql/scalars/boolean_composition.test
+# description: Token predicates composed with SQL's AND / OR / NOT
+
+require logsearch
+
+statement ok
+CREATE TABLE logs (id INTEGER, msg VARCHAR, note VARCHAR);
+
+statement ok
+INSERT INTO logs VALUES
+    (1, 'connection refused', 'from alice'),
+    (2, 'connection established', 'from bob'),
+    (3, 'disk full', NULL),
+    (4, NULL, 'from carol'),
+    (5, 'alice bob carol', 'all three'),
+    (6, '', ''),
+    (7, 'refused by peer', 'from alice'),
+    (8, NULL, NULL);
+
+##### Conjunction and disjunction over one column #####
+
+query I
+SELECT id FROM logs WHERE contains_token(msg, 'connection') AND contains_token(msg, 'refused') ORDER BY id;
+----
+1
+
+query I
+SELECT id FROM logs WHERE contains_token(msg, 'connection') OR contains_token(msg, 'refused') ORDER BY id;
+----
+1
+2
+7
+
+# A repeated conjunct changes nothing.
+query I
+SELECT id FROM logs WHERE contains_token(msg, 'refused') AND contains_token(msg, 'refused') ORDER BY id;
+----
+1
+7
+
+# A conjunction that no row satisfies, where each half on its own does.
+query I
+SELECT id FROM logs WHERE contains_token(msg, 'refused') AND contains_token(msg, 'established') ORDER BY id;
+----
+
+##### A disjunction below a conjunction #####
+
+query I
+SELECT id FROM logs
+WHERE contains_token(msg, 'connection')
+  AND (contains_token(msg, 'refused') OR contains_token(msg, 'established'))
+ORDER BY id;
+----
+1
+2
+
+query I
+SELECT id FROM logs
+WHERE (contains_token(msg, 'connection') OR contains_token(msg, 'disk'))
+  AND (contains_token(msg, 'refused') OR contains_token(msg, 'full'))
+ORDER BY id;
+----
+1
+3
+
+##### Across two columns #####
+
+query I
+SELECT id FROM logs WHERE contains_token(msg, 'refused') AND contains_token(note, 'alice') ORDER BY id;
+----
+1
+7
+
+query I
+SELECT id FROM logs WHERE contains_token(msg, 'disk') OR contains_token(note, 'carol') ORDER BY id;
+----
+3
+4
+
+# Row 4 has a NULL msg, so it can only be found through `note`. A rewrite that answers a cross-column
+# disjunction from one column alone loses it.
+query I
+SELECT id FROM logs WHERE contains_token(msg, 'nothing') OR contains_token(note, 'carol') ORDER BY id;
+----
+4
+
+##### Mixed with a predicate the index cannot answer #####
+
+query I
+SELECT id FROM logs WHERE contains_token(msg, 'connection') AND id > 1 ORDER BY id;
+----
+2
+
+# A disjunction with an unindexable branch cannot be bounded by the index at all: every row is a candidate.
+query I
+SELECT id FROM logs WHERE contains_token(msg, 'refused') OR id = 3 ORDER BY id;
+----
+1
+3
+7
+
+query I
+SELECT id FROM logs WHERE contains_token(msg, 'refused') AND note IS NOT NULL ORDER BY id;
+----
+1
+7
+
+##### Negation #####
+
+# Row 4 is excluded because its msg is NULL: NOT NULL is NULL, which is not TRUE.
+query I
+SELECT id FROM logs WHERE NOT contains_token(msg, 'refused') ORDER BY id;
+----
+2
+3
+5
+6
+
+query I
+SELECT id FROM logs WHERE contains_token(msg, 'connection') AND NOT contains_token(msg, 'refused') ORDER BY id;
+----
+2
+
+query I
+SELECT id FROM logs WHERE NOT contains_any_tokens(msg, ['refused', 'established']) ORDER BY id;
+----
+3
+5
+6
+
+# De Morgan holds through the predicates, NULL rows included. IS DISTINCT FROM rather than <> so that a row
+# where the two sides are both NULL is still compared instead of silently dropped.
+query I
+SELECT count(*) FROM logs
+WHERE (NOT (contains_token(msg, 'alice') OR contains_token(msg, 'bob')))
+  IS DISTINCT FROM ((NOT contains_token(msg, 'alice')) AND (NOT contains_token(msg, 'bob')));
+----
+0
+
+query I
+SELECT count(*) FROM logs
+WHERE (NOT (contains_token(msg, 'alice') AND contains_token(msg, 'bob')))
+  IS DISTINCT FROM ((NOT contains_token(msg, 'alice')) OR (NOT contains_token(msg, 'bob')));
+----
+0
+
+##### Three-valued logic #####
+
+# The predicates return NULL for a NULL column value, and AND / OR then follow SQL's rules rather than
+# propagating unconditionally: NULL AND FALSE is FALSE, NULL OR TRUE is TRUE.
+query TIIIII
+SELECT msg,
+       contains_token(msg, 'refused'),
+       contains_token(msg, 'refused') AND false,
+       contains_token(msg, 'refused') AND true,
+       contains_token(msg, 'refused') OR false,
+       contains_token(msg, 'refused') OR true
+FROM (VALUES ('connection refused'), ('disk full'), (NULL)) t(msg) ORDER BY msg NULLS LAST;
+----
+connection refused	1	0	1	1	1
+disk full	0	0	0	0	1
+NULL	NULL	0	NULL	NULL	1
+
+# First row: one side NULL, the other FALSE, so the conjunction collapses to FALSE while the disjunction
+# stays NULL. Second row: NULL on both sides, where neither collapses.
+query TTII
+SELECT msg, note,
+       contains_token(msg, 'a') AND contains_token(note, 'b'),
+       contains_token(msg, 'a') OR contains_token(note, 'b')
+FROM (VALUES (NULL::VARCHAR, 'from carol'), (NULL, NULL)) t(msg, note) ORDER BY note NULLS LAST;
+----
+NULL	from carol	0	NULL
+NULL	NULL	NULL	NULL
+
+query I
+SELECT id FROM logs WHERE coalesce(contains_token(msg, 'refused'), false) ORDER BY id;
+----
+1
+7
+
+# The list variants compose the same way
+
+query I
+SELECT id FROM logs
+WHERE contains_all_tokens(msg, ['alice', 'bob']) OR contains_token(note, 'carol')
+ORDER BY id;
+----
+4
+5
+
+query I
+SELECT id FROM logs
+WHERE contains_any_tokens(msg, ['refused', 'disk']) AND NOT contains_token(note, 'alice')
+ORDER BY id;
+----
+
+query I
+SELECT id FROM logs
+WHERE contains_all_tokens(msg, ['alice', 'carol'])
+   OR contains_all_tokens(note, ['from', 'bob'])
+ORDER BY id;
+----
+2
+5
+
+# A conjunction of list variants is the union of their token sets.
+query I
+SELECT count(*) FROM logs
+WHERE (contains_all_tokens(msg, ['alice', 'bob']) AND contains_all_tokens(msg, ['bob', 'carol']))
+  IS DISTINCT FROM contains_all_tokens(msg, ['alice', 'bob', 'carol']);
+----
+0

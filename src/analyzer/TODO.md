@@ -1,6 +1,11 @@
 # Analyzer Pipeline — Open Questions & TODOs
 
 - `TermCollector` is a dummy sink. The analyzer pipeline should be integrated into the rest of the extension.
+  `Run` returning a fresh `std::vector<std::string>` also means every caller allocates per document — the token
+  predicates do it per row. An iterator- or sink-shaped interface would let a caller consume terms without
+  materializing them.
+- Rename `Pipeline` to `Analyzer`. It is now used from a second directory (`../scalars/`), and "pipeline" says
+  how it is built rather than what it is.
 - The `Tokenizer` currently only splits on whitespace. It should also split on punctuation (commas, periods, colons).
 - Potentially implement a Porter stemmer. I think this is a modification that can be done in-place: Even though some
   steps grow the string (e.g. at→ate), the original capacity is never exceeded.
