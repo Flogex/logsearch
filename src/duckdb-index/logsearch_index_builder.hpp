@@ -20,7 +20,7 @@ namespace logsearch::inverted_index {
 class InvertedIndex;
 } // namespace logsearch::inverted_index
 
-namespace logsearch {
+namespace logsearch::duckdb_index {
 
 //! Assembles a LogsearchIndex (which inherits from duckdb::BoundIndex), split between taking the BoundIndex parameters
 //! and the underlying InvertedIndex, which is only completed later in the index creation process.
@@ -62,4 +62,4 @@ private:
     std::unique_ptr<inverted_index::InvertedIndex> index_;
 };
 
-} // namespace logsearch
+} // namespace logsearch::duckdb_index

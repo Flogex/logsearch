@@ -1,10 +1,12 @@
 #pragma once
 
-#include <duckdb/execution/index/index_type.hpp>
+namespace duckdb {
+class ExtensionLoader;
+} // namespace duckdb
 
-namespace logsearch {
+namespace logsearch::duckdb_index {
 
-//! Registers the Logsearch index type including the callbacks for CREATE INDEX and instantiates from storage.
-duckdb::IndexType CreateLogsearchIndexType();
+//! Registers the Logsearch index type including the callbacks for CREATE INDEX and instantiating from storage.
+void RegisterIndexType(duckdb::ExtensionLoader& loader);
 
-} // namespace logsearch
+} // namespace logsearch::duckdb_index

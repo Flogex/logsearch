@@ -11,7 +11,7 @@ namespace logsearch::inverted_index {
 class InvertedIndex;
 } // namespace logsearch::inverted_index
 
-namespace logsearch {
+namespace logsearch::duckdb_index {
 
 //! DuckDB index over one VARCHAR expression of a table, backed by the logsearch inverted index.
 class LogsearchIndex : public duckdb::BoundIndex {
@@ -60,4 +60,4 @@ private:
     std::unique_ptr<inverted_index::InvertedIndex> index_;
 };
 
-} // namespace logsearch
+} // namespace logsearch::duckdb_index

@@ -14,7 +14,7 @@
 #include <string>
 #include <utility>
 
-namespace logsearch {
+namespace logsearch::duckdb_index {
 
 LogsearchIndexBuilder::LogsearchIndexBuilder(
     duckdb::Identifier name, std::string index_type, const duckdb::IndexConstraintType index_constraint_type,
@@ -51,4 +51,4 @@ duckdb::unique_ptr<LogsearchIndex> LogsearchIndexBuilder::Build() {
                                              std::move(index_));
 }
 
-} // namespace logsearch
+} // namespace logsearch::duckdb_index

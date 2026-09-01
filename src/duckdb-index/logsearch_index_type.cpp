@@ -26,8 +26,12 @@
 #include <duckdb/common/types/data_chunk.hpp>
 #include <duckdb/common/types/string_type.hpp>
 #include <duckdb/common/types/vector.hpp>
+#include <duckdb/execution/index/index_type.hpp>
+#include <duckdb/execution/index/index_type_set.hpp>
 #include <duckdb/main/client_config.hpp>
 #include <duckdb/main/client_context.hpp>
+#include <duckdb/main/database.hpp>
+#include <duckdb/main/extension/extension_loader.hpp>
 #include <duckdb/parser/parsed_data/create_index_info.hpp>
 #include <duckdb/planner/expression.hpp>
 #include <duckdb/storage/buffer_manager.hpp>
@@ -37,7 +41,7 @@
 #include <string_view>
 #include <utility>
 
-namespace logsearch {
+namespace logsearch::duckdb_index {
 namespace {
 
 /***** Binding *****/
@@ -224,8 +228,6 @@ duckdb::unique_ptr<duckdb::BoundIndex> LogsearchCreateInstance(duckdb::CreateInd
     throw duckdb::NotImplementedException("Logsearch indexes cannot be restored from storage yet");
 }
 
-} // namespace
-
 duckdb::IndexType CreateLogsearchIndexType() {
     duckdb::IndexType logsearch_type;
     logsearch_type.name = INDEX_TYPE_NAME;
@@ -240,4 +242,12 @@ duckdb::IndexType CreateLogsearchIndexType() {
     return logsearch_type;
 }
 
-} // namespace logsearch
+} // namespace
+
+// NOLINTNEXTLINE(misc-const-correctness): Making the loader const feels like a lie.
+void RegisterIndexType(duckdb::ExtensionLoader& loader) {
+    duckdb::IndexTypeSet& index_types = loader.GetDatabaseInstance().config.GetIndexTypes();
+    index_types.RegisterIndexType(CreateLogsearchIndexType());
+}
+
+} // namespace logsearch::duckdb_index

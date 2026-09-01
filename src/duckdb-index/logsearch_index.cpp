@@ -17,7 +17,7 @@
 #include <string>
 #include <utility>
 
-namespace logsearch {
+namespace logsearch::duckdb_index {
 
 LogsearchIndex::LogsearchIndex(const duckdb::Identifier& name, const std::string& index_type,
                                const duckdb::IndexConstraintType index_constraint_type,
@@ -108,4 +108,4 @@ LogsearchIndex::SerializeToWAL(const duckdb::case_insensitive_map_t<duckdb::Valu
     throw duckdb::NotImplementedException("A Logsearch index cannot be written to the WAL yet");
 }
 
-} // namespace logsearch
+} // namespace logsearch::duckdb_index

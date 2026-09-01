@@ -26,7 +26,7 @@
 using Catch::Matchers::ContainsSubstring;
 using Catch::Matchers::Equals;
 using duckdb::row_t;
-using logsearch::LogsearchIndex;
+using logsearch::duckdb_index::LogsearchIndex;
 using logsearch::inverted_index::InvertedIndex;
 
 namespace {

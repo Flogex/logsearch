@@ -5,15 +5,11 @@
 #include "duckdb-index/logsearch_index_type.hpp"
 #include "scalars/token_predicates.hpp"
 
-#include <duckdb/execution/index/index_type_set.hpp>
-#include <duckdb/main/database.hpp>
 #include <duckdb/main/extension/extension_loader.hpp>
 
 namespace {
 void load_internal(duckdb::ExtensionLoader& loader) {
-    duckdb::IndexTypeSet& index_types = loader.GetDatabaseInstance().config.GetIndexTypes();
-    index_types.RegisterIndexType(logsearch::CreateLogsearchIndexType());
-
+    logsearch::duckdb_index::RegisterIndexType(loader);
     logsearch::scalars::RegisterTokenPredicates(loader);
 }
 } // namespace
