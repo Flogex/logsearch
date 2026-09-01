@@ -5,6 +5,7 @@
 #include "logsearch_index_type.hpp"
 
 #include "analyzer/pipeline.hpp"
+#include "constants.hpp"
 #include "inverted-index/inverted_index.hpp"
 #include "logsearch_index.hpp"
 #include "logsearch_index_builder.hpp"
@@ -46,7 +47,7 @@ class LogsearchBuildBindData : public duckdb::IndexBuildBindData {};
 // Called during `CREATE INDEX <name> ON <table> USING logsearch (<column expression>)`.
 // We currently only support creating the index on a single VARCHAR column.
 duckdb::unique_ptr<duckdb::IndexBuildBindData> LogsearchBuildBind(duckdb::IndexBuildBindInput& input) {
-    D_ASSERT(duckdb::StringUtil::CIEquals(input.info.index_type, LogsearchIndex::NAME));
+    D_ASSERT(duckdb::StringUtil::CIEquals(input.info.index_type, INDEX_TYPE_NAME));
 
     // CREATE UNIQUE INDEX ... USING logsearch reaches us with a UNIQUE constraint type.
     if (input.info.constraint_type != duckdb::IndexConstraintType::NONE) {
@@ -227,7 +228,7 @@ duckdb::unique_ptr<duckdb::BoundIndex> LogsearchCreateInstance(duckdb::CreateInd
 
 duckdb::IndexType CreateLogsearchIndexType() {
     duckdb::IndexType logsearch_type;
-    logsearch_type.name = LogsearchIndex::NAME;
+    logsearch_type.name = INDEX_TYPE_NAME;
     logsearch_type.build_bind = LogsearchBuildBind;
     logsearch_type.build_sort = LogsearchBuildSort;
     logsearch_type.build_global_init = LogsearchBuildGlobalInit;

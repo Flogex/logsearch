@@ -16,8 +16,6 @@ namespace logsearch {
 //! DuckDB index over one VARCHAR expression of a table, backed by the logsearch inverted index.
 class LogsearchIndex : public duckdb::BoundIndex {
 public:
-    static constexpr const char* NAME = "logsearch";
-
     //! `index` is the underlying InvertedIndex data structure. LogsearchIndexBuilder assembles it
     //! during CREATE INDEX.
     LogsearchIndex(const duckdb::Identifier& name, const std::string& index_type,

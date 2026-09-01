@@ -4,6 +4,8 @@ namespace logsearch {
 
 // Names are defined as constants used across modules because multiple modules rely on them as some kind of "contract".
 
+constexpr const char* INDEX_TYPE_NAME = "logsearch";
+
 /***** Token predicate scalar functions *****/
 constexpr const char* CONTAINS_TOKEN_NAME = "contains_token";
 constexpr const char* CONTAINS_ALL_TOKENS_NAME = "contains_all_tokens";
