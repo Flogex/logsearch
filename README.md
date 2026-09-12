@@ -21,7 +21,7 @@ DuckDB extension for full-text search, optimized for log data:
 
 **Recommended:**
 
-- ccache or sccache
+- ccache or sccache. Enable via CMAKE_CXX_COMPILER_LAUNCHER variable.
 
 **Optional:**
 

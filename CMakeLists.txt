@@ -21,11 +21,16 @@ if(PROJECT_IS_TOP_LEVEL)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
   set(CMAKE_CXX_EXTENSIONS OFF)
 
-  # Use ccache or sccache if available (ccache wins when both installed).
-  find_program(COMPILER_LAUNCHER NAMES ccache sccache)
-  if(COMPILER_LAUNCHER)
-    set(CMAKE_C_COMPILER_LAUNCHER "${COMPILER_LAUNCHER}")
-    set(CMAKE_CXX_COMPILER_LAUNCHER "${COMPILER_LAUNCHER}")
+  if(NOT DEFINED CMAKE_CXX_COMPILER_LAUNCHER)
+    find_program(COMPILER_LAUNCHER NAMES ccache sccache)
+    if(NOT COMPILER_LAUNCHER)
+      message(
+        WARNING
+        "(s)ccache not found. Using a compiler cache is recommended. Configure one "
+        "by exporting the CMAKE_CXX_COMPILER_LAUNCHER environment variable. Pass "
+        "-DCMAKE_CXX_COMPILER_LAUNCHER= to silence this warning."
+      )
+    endif()
   endif()
 
   # Enable sanitizers in DuckDB if and only if they are enabled for the extension targets as well.
