@@ -59,7 +59,6 @@ cppcheck preset="release": (configure preset)
         --inline-suppr \
         --suppress=missingIncludeSystem \
         --suppress='*:*/_deps/*' \
-        --std=c++20 \
         --quiet \
         --error-exitcode=1
 
