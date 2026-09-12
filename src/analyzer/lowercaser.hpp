@@ -1,5 +1,6 @@
 #pragma once
 
+#include "attributes.hpp"
 #include "mutable_span.hpp"
 
 #include <cstddef>
@@ -7,7 +8,7 @@
 namespace logsearch::analyzer {
 
 namespace detail {
-void LowercaseAsciiInPlace(char* data, std::size_t length) noexcept [[clang::nonblocking]];
+void LowercaseAsciiInPlace(char* data, std::size_t length) noexcept LS_NONBLOCKING;
 } // namespace detail
 
 template <typename Downstream>

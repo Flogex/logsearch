@@ -65,6 +65,16 @@ TEST_CASE("Tokenizer handles all whitespace classes (space tab nl cr ff vt)", "[
     REQUIRE_THAT(sink.tokens, Equals(std::vector<std::string>{"a", "b", "c", "d", "e", "f"}));
 }
 
+TEST_CASE("Tokenizer does not split on control characters bordering the whitespace range", "[analyzer][tokenizer]") {
+    // Octal escapes because 'b' and 'c' are hex digits and would be swallowed by a \x escape.
+    // 0x08, 0x0e and 0x1f sit immediately outside the 0x09-0x0d block and the space, so an
+    // off-by-one in the whitespace range check would split the document here.
+    CaptureSink sink;
+    std::string doc = "a\010b\016c\037d";
+    RunTokenizer(sink, doc);
+    REQUIRE_THAT(sink.tokens, Equals(std::vector<std::string>{doc}));
+}
+
 TEST_CASE("Tokenizer trims leading whitespace", "[analyzer][tokenizer]") {
     CaptureSink sink;
     std::string doc = "   hello world";

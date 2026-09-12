@@ -1,5 +1,6 @@
 #pragma once
 
+#include "attributes.hpp"
 #include "mutable_span.hpp"
 #include "string_predicates.hpp"
 
@@ -14,7 +15,7 @@ namespace detail {
 // Finds the next whitespace-delimited token in `doc`, starting from `pos`.
 // `pos` is an in/out cursor and gets advanced by this function to the index where the next search should start.
 // Returns a MutableSpan that points to the buffer of `doc`.
-std::optional<MutableSpan> FindNextToken(MutableSpan doc, std::size_t& pos) noexcept [[clang::nonblocking]];
+std::optional<MutableSpan> FindNextToken(MutableSpan doc, std::size_t& pos) noexcept LS_NONBLOCKING;
 } // namespace detail
 
 template <typename Downstream>

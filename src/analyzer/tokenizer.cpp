@@ -10,19 +10,32 @@
 #include <optional>
 #include <string_view>
 
-namespace logsearch::analyzer::detail {
+namespace logsearch::analyzer {
 
-std::optional<MutableSpan> FindNextToken(MutableSpan doc, std::size_t& pos) noexcept [[clang::nonblocking]] {
-    constexpr std::string_view WHITESPACE = " \t\n\r\f\v";
+namespace {
+
+// The ASCII whitespace characters are the space plus the contiguous 0x09-0x0D block.
+constexpr bool IsAsciiWhitespace(const unsigned char c) noexcept {
+    return c == ' ' || (c >= '\t' && c <= '\r');
+}
+
+} // namespace
+
+namespace detail {
+
+std::optional<MutableSpan> FindNextToken(MutableSpan doc, std::size_t& pos) noexcept LS_NONBLOCKING {
     const std::string_view view = doc.view();
 
-    const std::size_t start = view.find_first_not_of(WHITESPACE, pos);
-    if (start == std::string_view::npos) {
+    std::size_t start = pos;
+    while (start < view.size() && IsAsciiWhitespace(view[start])) {
+        start++;
+    }
+    if (start >= view.size()) {
         return std::nullopt;
     }
-    std::size_t end = view.find_first_of(WHITESPACE, start);
-    if (end == std::string_view::npos) {
-        end = view.size();
+    std::size_t end = start;
+    while (end < view.size() && !IsAsciiWhitespace(view[end])) {
+        end++;
     }
 
     // Set out parameter for the next call
@@ -31,4 +44,6 @@ std::optional<MutableSpan> FindNextToken(MutableSpan doc, std::size_t& pos) noex
     return MutableSpan(doc.data() + start, end - start);
 }
 
-} // namespace logsearch::analyzer::detail
+} // namespace detail
+
+} // namespace logsearch::analyzer

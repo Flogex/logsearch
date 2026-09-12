@@ -6,7 +6,7 @@
 
 namespace logsearch::analyzer::detail {
 
-void LowercaseAsciiInPlace(char* data, const std::size_t length) noexcept [[clang::nonblocking]] {
+void LowercaseAsciiInPlace(char* data, const std::size_t length) noexcept LS_NONBLOCKING {
     for (std::size_t i = 0; i < length; ++i) {
         // Keep code inside of loop simple for auto-vectorization
         const char c = data[i];

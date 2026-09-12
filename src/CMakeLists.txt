@@ -43,6 +43,8 @@ set(
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   # Enforces the DUCKDB_GUARDED_BY / DUCKDB_REQUIRES annotations.
   list(APPEND WARN_FLAGS -Wthread-safety)
+  # For clang::nonblocking et al. attributes
+  list(APPEND WARN_FLAGS -Wfunction-effects)
 endif()
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   # GCC-only warnings (Clang doesn't accept some of these or treats them as no-ops).
