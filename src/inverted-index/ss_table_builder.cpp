@@ -20,6 +20,7 @@
 #include <duckdb/common/typedefs.hpp>
 #include <duckdb/storage/buffer_manager.hpp>
 #include <limits>
+#include <utility>
 #include <vector>
 
 namespace logsearch::inverted_index {

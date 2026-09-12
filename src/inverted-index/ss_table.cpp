@@ -16,6 +16,7 @@
 #include <duckdb/storage/buffer_manager.hpp>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace logsearch::inverted_index {

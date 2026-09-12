@@ -6,6 +6,7 @@
 #include "scalars/token_predicates.hpp"
 
 #include <duckdb/main/extension/extension_loader.hpp>
+#include <string>
 
 namespace {
 void load_internal(duckdb::ExtensionLoader& loader) {

@@ -6,6 +6,7 @@
 #include <catch2/matchers/catch_matchers_vector.hpp>
 #include <duckdb/common/allocator.hpp>
 #include <duckdb/common/typedefs.hpp>
+#include <string>
 #include <vector>
 
 using Catch::Matchers::Equals;
