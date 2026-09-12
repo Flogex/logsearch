@@ -62,7 +62,6 @@ if(PROJECT_IS_TOP_LEVEL)
   set(ENABLE_UNITTEST_CPP_TESTS OFF) # Don't build DuckDB C++ tests, which we don't run anyway.
   FetchContent_MakeAvailable(duckdb)
 
-  enable_testing()
   add_subdirectory(test)
 else()
   # Re-entry from DuckDB's CMakeLists:
