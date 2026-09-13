@@ -1,7 +1,3 @@
-#ifndef DUCKDB_INDEX_UNITY_BUILD
-#error "logsearch_index_type.cpp must be compiled as part of the DuckDB-Index unity build"
-#endif
-
 #include "logsearch_index_type.hpp"
 
 #include "analyzer/pipeline.hpp"

@@ -109,6 +109,6 @@ This is manifested in the following coding practices:
 
 Build setup:
 
-- Unity build: This allows the compiler to see the analyzer as one translation unit.
+- Unity build (with CMake `UNITY_GROUP`): This allows the compiler to see the analyzer as one translation unit.
 - Recompile shielding: The rest of the codebase depends only the _pipeline.hpp_ header file.
   Changes in the _analyzer_ directory do not require recompilation of other parts of the extension.

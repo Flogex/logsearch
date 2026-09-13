@@ -7,6 +7,9 @@ set(EXTENSION_NAME logsearch_extension)
 set(LOADABLE_EXTENSION_NAME logsearch_loadable_extension)
 
 option(ENABLE_LINTING "Run clang-tidy and cppcheck on extension targets during build" OFF)
+# We provide our own option to control unity builds instead of relying on CMAKE_UNITY_BUILD.
+# CMAKE_UNITY_BUILD initializes UNITY_BUILD on every target, but we want a separate knob for Logsearch.
+option(LOGSEARCH_UNITY_BUILD "Compile subcomponents as one translation unit each" ON)
 option(LOGSEARCH_ENABLE_ASAN "Build with AddressSanitizer" OFF)
 option(LOGSEARCH_ENABLE_UBSAN "Build with UndefinedBehaviorSanitizer" OFF)
 

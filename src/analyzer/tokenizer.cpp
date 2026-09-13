@@ -1,7 +1,3 @@
-#ifndef ANALYZER_UNITY_BUILD
-#error "tokenizer.cpp must be compiled as part of the Analyzer unity build"
-#endif
-
 #include "tokenizer.hpp"
 
 #include "mutable_span.hpp"

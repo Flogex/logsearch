@@ -49,10 +49,11 @@
     {
       "name": "release-lint",
       "inherits": "release",
-      "description": "Release build with linting (clang-tidy, cppcheck) enabled",
+      "description": "Non-unity release build with linting (clang-tidy, cppcheck) enabled",
       "binaryDir": "${sourceDir}/build/release-lint",
       "cacheVariables": {
-        "ENABLE_LINTING": "ON"
+        "ENABLE_LINTING": "ON",
+        "LOGSEARCH_UNITY_BUILD": "OFF"
       }
     }
   ],

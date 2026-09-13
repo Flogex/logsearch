@@ -1,7 +1,3 @@
-#ifndef INVERTED_INDEX_UNITY_BUILD
-#error "postings_list.cpp must be compiled as part of the Inverted-Index unity build"
-#endif
-
 #include "postings_list.hpp"
 
 #include "assertions.hpp"

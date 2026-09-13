@@ -1,7 +1,3 @@
-#ifndef SCALARS_UNITY_BUILD
-#error "token_predicates.cpp must be compiled as part of the Scalars unity build"
-#endif
-
 #include "token_predicates.hpp"
 
 #include "constants.hpp"

@@ -1,7 +1,3 @@
-#ifndef INVERTED_INDEX_UNITY_BUILD
-#error "memtable.cpp must be compiled as part of the Inverted-Index unity build"
-#endif
-
 #include "memtable.hpp"
 
 #include "postings_list.hpp"

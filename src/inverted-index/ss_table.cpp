@@ -1,7 +1,3 @@
-#ifndef INVERTED_INDEX_UNITY_BUILD
-#error "ss_table.cpp must be compiled as part of the Inverted-Index unity build"
-#endif
-
 #include "ss_table.hpp"
 
 #include "assertions.hpp"

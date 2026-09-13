@@ -1,11 +1,6 @@
 # clangd configuration so the editor analyzes our sources the way the build actually compiles them.
-# 1. Tells clangd where to find the compilation database. Fixes unresolved <duckdb/...> includes.
-# 2. Adds the *_UNITY_BUILD flags to prevent clangd from seeing errors when analyzing these single files.
+# Points clangd at the compilation database of the `release-lint` preset: it is the non-unity build,
+# so it holds one entry per source file. Configure it once with `just configure release-lint`.
 
 CompileFlags:
-  CompilationDatabase: build/release
-  Add:
-    - -DINVERTED_INDEX_UNITY_BUILD=
-    - -DANALYZER_UNITY_BUILD=
-    - -DDUCKDB_INDEX_UNITY_BUILD=
-    - -DSCALARS_UNITY_BUILD=
+  CompilationDatabase: build/release-lint

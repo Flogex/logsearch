@@ -1,7 +1,3 @@
-#ifndef ANALYZER_UNITY_BUILD
-#error "term_length_guard.cpp must be compiled as part of the Analyzer unity build"
-#endif
-
 #include "term_length_guard.hpp"
 
 #include <cstddef>

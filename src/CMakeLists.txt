@@ -2,20 +2,25 @@
 # DuckDB sets minimum_required itself, so we have to overwrite it to use the newest policies.
 cmake_minimum_required(VERSION 3.28...4.4)
 
-set(
-  SOURCE_FILES
-  analyzer/analyzer_ub.cpp
-  duckdb-index/duckdb_index_ub.cpp
-  inverted-index/inverted_index_ub.cpp
-  scalars/scalars_ub.cpp
-  storage/multi_block_writer.cpp
-  logsearch_extension.cpp
-)
-
-# Registers the extension targets using DuckDB's CMake helper functions
-build_static_extension(logsearch ${SOURCE_FILES})
+# Registers the extension targets using DuckDB's CMake helper functions.
+# Component subdirectories add their sources with target_sources().
+build_static_extension(logsearch logsearch_extension.cpp)
 set(PARAMETERS " ")
-build_loadable_extension(logsearch ${PARAMETERS} ${SOURCE_FILES})
+build_loadable_extension(logsearch ${PARAMETERS} logsearch_extension.cpp)
+
+# Each component subdirectory names its own unity group.
+foreach(target IN ITEMS ${EXTENSION_NAME} ${LOADABLE_EXTENSION_NAME})
+  set_target_properties(
+    ${target}
+    PROPERTIES UNITY_BUILD ${LOGSEARCH_UNITY_BUILD} UNITY_BUILD_MODE GROUP
+  )
+endforeach()
+
+add_subdirectory(analyzer)
+add_subdirectory(duckdb-index)
+add_subdirectory(inverted-index)
+add_subdirectory(scalars)
+add_subdirectory(storage)
 
 target_include_directories(${EXTENSION_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 target_include_directories(${LOADABLE_EXTENSION_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

@@ -1,7 +1,3 @@
-#ifndef INVERTED_INDEX_UNITY_BUILD
-#error "inverted_index.cpp must be compiled as part of the Inverted-Index unity build"
-#endif
-
 #include "inverted_index.hpp"
 
 #include "assertions.hpp"

@@ -1,7 +1,3 @@
-#ifndef ANALYZER_UNITY_BUILD
-#error "pipeline.cpp must be compiled as part of the Analyzer unity build"
-#endif
-
 #include "pipeline.hpp"
 
 #include "lowercaser.hpp"

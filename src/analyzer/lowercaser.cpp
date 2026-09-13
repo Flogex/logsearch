@@ -1,7 +1,3 @@
-#ifndef ANALYZER_UNITY_BUILD
-#error "lowercaser.cpp must be compiled as part of the Analyzer unity build"
-#endif
-
 #include "lowercaser.hpp"
 
 namespace logsearch::analyzer::detail {
