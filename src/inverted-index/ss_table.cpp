@@ -4,6 +4,8 @@
 
 #include "ss_table.hpp"
 
+#include "assertions.hpp"
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -146,7 +148,7 @@ std::vector<duckdb::row_t> SSTable::Lookup(const std::string_view search_term,
 }
 
 void SSTable::Verify() const {
-#if defined(D_ASSERT_IS_ENABLED) || !defined(NDEBUG)
+#ifdef LS_ASSERTS_ENABLED
     D_ASSERT(header_.magic == SSTABLE_MAGIC);
     D_ASSERT(header_.version == SSTABLE_VERSION);
     D_ASSERT(header_.block_size == block_size_);

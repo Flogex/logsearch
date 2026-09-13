@@ -4,6 +4,7 @@
 
 #include "inverted_index.hpp"
 
+#include "assertions.hpp"
 #include "memtable.hpp"
 #include "ss_table.hpp"
 
@@ -75,7 +76,7 @@ std::vector<duckdb::row_t> InvertedIndex::Lookup(const std::string_view term,
 
 namespace {
 
-#if defined(D_ASSERT_IS_ENABLED) || !defined(NDEBUG) // only caller is a D_ASSERT
+#ifdef LS_ASSERTS_ENABLED // only caller is a D_ASSERT
 //! Returns true if any partition of `lhs` covers a row ID that a partition of `rhs` also covers.
 bool RangesOverlap(const std::vector<SSTable>& lhs, const std::vector<SSTable>& rhs) {
     std::size_t left = 0;

@@ -4,6 +4,8 @@
 
 #include "postings_list.hpp"
 
+#include "assertions.hpp"
+
 #include <cstdint>
 #include <duckdb/common/assert.hpp>
 #include <duckdb/common/constants.hpp>
@@ -11,9 +13,9 @@
 
 namespace logsearch::inverted_index {
 
-// NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): entries uninitialized by design under NDEBUG
+// NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): entries uninitialized by design without assertions
 PostingsSegment::PostingsSegment() noexcept {
-#if defined(D_ASSERT_IS_ENABLED) || !defined(NDEBUG)
+#ifdef LS_ASSERTS_ENABLED
     // `entries` is filled with a sentinel only when assertions are enabled, so Verify and Insert's write-once check can
     // distinguish written slots (any valid row ID, including 0) from never-written ones.
     entries.fill(POSTINGS_UNWRITTEN_SENTINEL);
@@ -21,7 +23,7 @@ PostingsSegment::PostingsSegment() noexcept {
 }
 
 void PostingsList::Verify() const {
-#if defined(D_ASSERT_IS_ENABLED) || !defined(NDEBUG)
+#ifdef LS_ASSERTS_ENABLED
     if (size == 0) {
         D_ASSERT(head == nullptr);
         D_ASSERT(tail == nullptr);
