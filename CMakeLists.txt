@@ -13,6 +13,17 @@ option(LOGSEARCH_UNITY_BUILD "Compile subcomponents as one translation unit each
 option(LOGSEARCH_ENABLE_ASAN "Build with AddressSanitizer" OFF)
 option(LOGSEARCH_ENABLE_UBSAN "Build with UndefinedBehaviorSanitizer" OFF)
 
+# A unity build's compilation database names generated unity sources rather than our own files, so
+# cppcheck's file filter skips them and clangd and iwyu_tool.py cannot attribute anything to a
+# single source.
+if(ENABLE_LINTING AND LOGSEARCH_UNITY_BUILD)
+  message(
+    FATAL_ERROR
+    "ENABLE_LINTING requires LOGSEARCH_UNITY_BUILD=OFF. Pass -DLOGSEARCH_UNITY_BUILD=OFF or use "
+    "the release-lint preset."
+  )
+endif()
+
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/linters.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/sanitizers.cmake)
 

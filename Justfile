@@ -8,8 +8,13 @@ extra_flags := if env('OSX_BUILD_ARCH', '') != '' { '-DOSX_BUILD_ARCH=' + env('O
 [group("build")]
 configure preset="release":
     #!/usr/bin/env bash
+    set -euo pipefail
     if [ ! -f "{{build_dir}}/{{preset}}/CMakeCache.txt" ]; then
         cmake --preset {{preset}} {{extra_flags}}
+    else
+        # Regenerate if any CMakeLists changed. The recipes that read compile_commands.json without
+        # building would otherwise miss sources added since the last configure.
+        ninja -C {{build_dir}}/{{preset}} build.ninja > /dev/null
     fi
 
 # Build any preset (release/debug/reldebinfo). Configures CMake if needed.
@@ -37,21 +42,22 @@ test preset="release" *args: (build preset)
 test-sqllogic: (build "release")
     {{build_dir}}/release/_deps/duckdb-build/test/unittest "*logsearch/test/sql/*"
 
-# Run clang-tidy on extension sources without building.
+# Run clang-tidy on every extension source without building.
 [group("lint")]
-clang-tidy preset="release": (configure preset)
+clang-tidy preset="release-lint": (configure preset)
     #!/usr/bin/env bash
     set -euo pipefail
     extra=()
     if [[ "$OSTYPE" == "darwin"* ]]; then
         # clang-tidy installed from Homebrew can't locate libc++ system headers without explicit -isysroot.
-        extra+=(--extra-arg-before=-isysroot --extra-arg-before="$(xcrun --show-sdk-path)")
+        extra+=(-extra-arg-before=-isysroot -extra-arg-before="$(xcrun --show-sdk-path)")
     fi
-    clang-tidy -p {{build_dir}}/{{preset}} --header-filter=^{{proj_dir}}/src/ "${extra[@]}" {{proj_dir}}/src/*.cpp
+    run-clang-tidy -p {{build_dir}}/{{preset}} -quiet \
+        -header-filter=^{{proj_dir}}/src/ "${extra[@]}" ^{{proj_dir}}/src/
 
 # Run cppcheck on extension sources without building.
 [group("lint")]
-cppcheck preset="release": (configure preset)
+cppcheck preset="release-lint": (configure preset)
     cppcheck \
         --project={{build_dir}}/{{preset}}/compile_commands.json \
         --file-filter='{{proj_dir}}/src/*' \

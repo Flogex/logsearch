@@ -22,6 +22,12 @@ add_subdirectory(inverted-index)
 add_subdirectory(scalars)
 add_subdirectory(storage)
 
+# Both targets compile the same sources, which would put two entries per file in
+# compile_commands.json and make clangd and iwyu_tool.py pick one arbitrarily or run twice.
+set_target_properties(${LOADABLE_EXTENSION_NAME} PROPERTIES EXPORT_COMPILE_COMMANDS OFF)
+
+# The static extension is installed into DuckDB's export set below, which rejects source-tree paths.
+# BUILD_INTERFACE keeps the path for builds here and drops it in external installs.
 target_include_directories(${EXTENSION_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 target_include_directories(${LOADABLE_EXTENSION_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
