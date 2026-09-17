@@ -72,7 +72,8 @@ cppcheck preset="release-lint": (configure preset)
 format:
     pre-commit run --all-files
 
-# Remove the build directory. Optional preset arg restricts removal to build/<preset> only (e.g. `just clean debug`).
+# Remove the build directory, including the CPM source cache in build/deps.
+# Optional preset arg restricts removal to build/<preset> only (e.g. `just clean debug`).
 clean preset="":
     #!/usr/bin/env bash
     if [ -n "{{preset}}" ]; then

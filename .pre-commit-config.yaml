@@ -57,3 +57,6 @@ repos:
         entry: scripts/check-pragma-once.sh
         language: script
         files: \.hpp$
+
+# Vendored verbatim from an upstream release; reformatting it would break hash verification.
+exclude: ^cmake/CPM\.cmake$

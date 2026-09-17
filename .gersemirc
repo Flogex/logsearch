@@ -1,3 +1,6 @@
 indent: 2
 line_length: 100
 warn_about_unknown_commands: false
+# Keep the canonical casing of the commands CPM.cmake defines.
+definitions:
+  - cmake/CPM.cmake

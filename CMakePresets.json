@@ -42,8 +42,10 @@
       "binaryDir": "${sourceDir}/build/reldebinfo",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CMAKE_CXX_FLAGS": "-DDUCKDB_FORCE_ASSERT",
-        "CMAKE_C_FLAGS": "-DDUCKDB_FORCE_ASSERT"
+        "FORCE_ASSERT": {
+          "type": "BOOL",
+          "value": "ON"
+        }
       }
     },
     {
