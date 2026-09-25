@@ -8,7 +8,7 @@ build_static_extension(logsearch logsearch_extension.cpp)
 set(PARAMETERS " ")
 build_loadable_extension(logsearch ${PARAMETERS} logsearch_extension.cpp)
 
-# Each component subdirectory names its own unity group.
+# Components name their unity group, if any, via logsearch_add_component().
 foreach(target IN ITEMS ${EXTENSION_NAME} ${LOADABLE_EXTENSION_NAME})
   set_target_properties(
     ${target}

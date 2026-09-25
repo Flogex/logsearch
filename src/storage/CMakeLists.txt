@@ -1,4 +1,1 @@
-set(STORAGE_SOURCE_FILES multi_block_writer.cpp)
-
-target_sources(${EXTENSION_NAME} PRIVATE ${STORAGE_SOURCE_FILES})
-target_sources(${LOADABLE_EXTENSION_NAME} PRIVATE ${STORAGE_SOURCE_FILES})
+logsearch_add_component(storage SOURCES multi_block_writer.cpp)

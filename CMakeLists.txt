@@ -22,6 +22,7 @@ if(LOGSEARCH_ENABLE_LINTING AND LOGSEARCH_UNITY_BUILD)
   )
 endif()
 
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/components.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/linters.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/sanitizers.cmake)
 
