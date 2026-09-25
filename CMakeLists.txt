@@ -4,7 +4,7 @@ project(LogsearchExtension CXX)
 set(EXTENSION_NAME logsearch_extension)
 set(LOADABLE_EXTENSION_NAME logsearch_loadable_extension)
 
-option(ENABLE_LINTING "Run clang-tidy and cppcheck on extension targets during build" OFF)
+option(LOGSEARCH_ENABLE_LINTING "Run clang-tidy and cppcheck on extension targets during build" OFF)
 # We provide our own option to control unity builds instead of relying on CMAKE_UNITY_BUILD.
 # CMAKE_UNITY_BUILD initializes UNITY_BUILD on every target, but we want a separate knob for Logsearch.
 option(LOGSEARCH_UNITY_BUILD "Compile subcomponents as one translation unit each" ON)
@@ -14,10 +14,10 @@ option(LOGSEARCH_ENABLE_UBSAN "Build with UndefinedBehaviorSanitizer" OFF)
 # A unity build's compilation database names generated unity sources rather than our own files, so
 # cppcheck's file filter skips them and clangd and iwyu_tool.py cannot attribute anything to a
 # single source.
-if(ENABLE_LINTING AND LOGSEARCH_UNITY_BUILD)
+if(LOGSEARCH_ENABLE_LINTING AND LOGSEARCH_UNITY_BUILD)
   message(
     FATAL_ERROR
-    "ENABLE_LINTING requires LOGSEARCH_UNITY_BUILD=OFF. Pass -DLOGSEARCH_UNITY_BUILD=OFF or use "
+    "LOGSEARCH_ENABLE_LINTING requires LOGSEARCH_UNITY_BUILD=OFF. Pass -DLOGSEARCH_UNITY_BUILD=OFF or use "
     "the release-lint preset."
   )
 endif()

@@ -32,7 +32,7 @@ target_include_directories(${EXTENSION_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CU
 target_include_directories(${LOADABLE_EXTENSION_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Compiler warnings. PRIVATE so they don't propagate to DuckDB or consumers.
-# Curated to be strict without being noisy. Warnings become errors only under ENABLE_LINTING.
+# Curated to be strict without being noisy. Warnings become errors only under LOGSEARCH_ENABLE_LINTING.
 set(
   WARN_FLAGS
   -Wall
@@ -72,7 +72,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 endif()
 foreach(target IN ITEMS ${EXTENSION_NAME} ${LOADABLE_EXTENSION_NAME})
   target_compile_options(${target} PRIVATE ${WARN_FLAGS})
-  set_target_properties(${target} PROPERTIES COMPILE_WARNING_AS_ERROR ${ENABLE_LINTING})
+  set_target_properties(${target} PROPERTIES COMPILE_WARNING_AS_ERROR ${LOGSEARCH_ENABLE_LINTING})
 endforeach()
 
 # Expose the static extension to DuckDB's install set so packaging /

@@ -1,9 +1,9 @@
 include_guard(GLOBAL)
 
 # Attaches clang-tidy and cppcheck to <target> so they run as part of the build. No-op unless
-# ENABLE_LINTING is set.
+# LOGSEARCH_ENABLE_LINTING is set.
 function(logsearch_apply_linters target)
-  if(NOT ENABLE_LINTING)
+  if(NOT LOGSEARCH_ENABLE_LINTING)
     return()
   endif()
 
