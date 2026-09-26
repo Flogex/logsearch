@@ -207,7 +207,9 @@ void ContainsAnyTokensFunction(duckdb::DataChunk& args, duckdb::ExpressionState&
 // current implementation rather than properties of the predicates: non-ASCII input is a NotImplementedException that
 // goes away with Unicode support, and a term over the length limit is unreachable through a DuckDB VARCHAR, whose
 // maximum length is exactly that limit. Declaring them infallible is what lets DuckDB push a conjunction of them
-// into a scan, and it lets the executor evaluate them once per distinct value of a dictionary vector.
+// into a scan, and it lets the executor evaluate them once per distinct value of a dictionary vector. It also keeps
+// the scan's AdaptiveFilter reordering: a single fallible table filter freezes the order of every filter on that
+// scan.
 void RegisterTokenPredicates(duckdb::ExtensionLoader& loader) {
     const auto token_list_type = duckdb::LogicalType::LIST(duckdb::LogicalType::VARCHAR);
 

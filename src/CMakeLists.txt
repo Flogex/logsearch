@@ -11,7 +11,6 @@ cmake_minimum_required(VERSION 3.28...4.4)
 option(LOGSEARCH_UNITY_BUILD "Compile subcomponents as one translation unit each" ON)
 
 set(EXTENSION_NAME logsearch_extension)
-set(LOADABLE_EXTENSION_NAME logsearch_loadable_extension)
 
 # A unity build's compilation database names generated unity sources rather than our own files, so
 # cppcheck's file filter skips them and clangd and iwyu_tool.py cannot attribute anything to a
@@ -29,38 +28,21 @@ include(${LOGSEARCH_ROOT}/cmake/components.cmake)
 include(${LOGSEARCH_ROOT}/cmake/linters.cmake)
 include(${LOGSEARCH_ROOT}/cmake/sanitizers.cmake)
 
-# DuckDB uses old-style include_directories(). Hence, we have a bunch of directories in
-# INCLUDE_DIRECTORIES now that are added with -I, not -isystem, to the compiler arguments. This
-# means we will get compiler warnings from DuckDB's headers. To avoid that, we re-add DuckDB's
-# include directories as SYSTEM.
-# logsearch_duckdb_headers republishes them as a target so consumers outside this tree (test/)
-# can link against them instead of reading the directory property back off DuckDB's source directory.
-# It is deliberately not linked into the extension targets because those go into DuckDB's export
-# set. It would force us to publish this internal build target as well.
-block(SCOPE_FOR VARIABLES)
-  get_directory_property(inherited_includes INCLUDE_DIRECTORIES)
-  add_library(logsearch_duckdb_headers INTERFACE)
-  if(inherited_includes)
-    set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
-    foreach(dir IN LISTS inherited_includes)
-      include_directories(SYSTEM ${dir})
-    endforeach()
-    target_include_directories(logsearch_duckdb_headers SYSTEM INTERFACE ${inherited_includes})
-  endif()
-endblock()
+# DuckDB adds its own and its third-party include paths with the directory-scoped
+# include_directories(), so this directory inherits them all as -I instead of -isystem and our
+# targets would get warnings from DuckDB's headers. We only need src/include after all.
+set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
 
-# Registers the extension targets using DuckDB's CMake helper functions.
-# Component subdirectories add their sources with target_sources().
-build_static_extension(logsearch logsearch_extension.cpp)
-build_loadable_extension(logsearch "" logsearch_extension.cpp)
+# Compiles the sources once into the static archive and links the loadable extension from it, so every
+# per-target setting below only needs to be applied to ${EXTENSION_NAME}.
+# Component subdirectories add their sources with logsearch_add_component().
+build_extension_library(logsearch logsearch_extension.cpp)
 
 # Components name their unity group, if any, via logsearch_add_component().
-foreach(target IN ITEMS ${EXTENSION_NAME} ${LOADABLE_EXTENSION_NAME})
-  set_target_properties(
-    ${target}
-    PROPERTIES UNITY_BUILD ${LOGSEARCH_UNITY_BUILD} UNITY_BUILD_MODE GROUP
-  )
-endforeach()
+set_target_properties(
+  ${EXTENSION_NAME}
+  PROPERTIES UNITY_BUILD ${LOGSEARCH_UNITY_BUILD} UNITY_BUILD_MODE GROUP
+)
 
 add_subdirectory(analyzer)
 add_subdirectory(duckdb-index)
@@ -68,14 +50,14 @@ add_subdirectory(inverted-index)
 add_subdirectory(scalars)
 add_subdirectory(storage)
 
-# Both targets compile the same sources, which would put two entries per file in
-# compile_commands.json and make clangd and iwyu_tool.py pick one arbitrarily or run twice.
-set_target_properties(${LOADABLE_EXTENSION_NAME} PROPERTIES EXPORT_COMPILE_COMMANDS OFF)
-
 # The static extension is installed into DuckDB's export set below, which rejects source-tree paths.
 # BUILD_INTERFACE keeps the path for builds here and drops it in external installs.
 target_include_directories(${EXTENSION_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
-target_include_directories(${LOADABLE_EXTENSION_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(
+  ${EXTENSION_NAME}
+  SYSTEM
+  PUBLIC $<BUILD_INTERFACE:${DuckDB_SOURCE_DIR}/src/include>
+)
 
 # DuckDB is added with SYSTEM from the root, and this directory sits inside its tree, so the
 # extension inherits this property. However, we don't want outside consumers (unittests) to consume
@@ -122,12 +104,10 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     -Wno-missing-field-initializers
   )
 endif()
-foreach(target IN ITEMS ${EXTENSION_NAME} ${LOADABLE_EXTENSION_NAME})
-  target_compile_options(${target} PRIVATE ${WARN_FLAGS})
-  if(LOGSEARCH_ENABLE_LINTING)
-    set_target_properties(${target} PROPERTIES COMPILE_WARNING_AS_ERROR ON)
-  endif()
-endforeach()
+target_compile_options(${EXTENSION_NAME} PRIVATE ${WARN_FLAGS})
+if(LOGSEARCH_ENABLE_LINTING)
+  set_target_properties(${EXTENSION_NAME} PROPERTIES COMPILE_WARNING_AS_ERROR ON)
+endif()
 
 # Expose the static extension to DuckDB's install set so packaging /
 # distribution flows pick it up. DUCKDB_EXPORT_SET and INSTALL_LIB_DIR are
@@ -139,8 +119,5 @@ install(
   ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
 )
 
-foreach(target IN ITEMS ${EXTENSION_NAME} ${LOADABLE_EXTENSION_NAME})
-  logsearch_apply_sanitizers(${target})
-endforeach()
-
+logsearch_apply_sanitizers(${EXTENSION_NAME})
 logsearch_apply_linters(${EXTENSION_NAME})
