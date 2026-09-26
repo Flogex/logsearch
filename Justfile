@@ -37,10 +37,11 @@ test preset="release" *args: (build preset)
     set -euf -o pipefail
     {{build_dir}}/{{preset}}/test/unittests {{args}}
 
-# Run SQLLogicTests for the logsearch extension.
+# Run SQLLogicTests for the Logsearch extension with the given preset (release/debug/reldebinfo). Trailing args are
+# forwarded to DuckDB's unittest binary. Example: `just test-sqllogic debug --list-test-names-only`.
 [group("test")]
-test-sqllogic: (build "release")
-    {{build_dir}}/release/_deps/duckdb-build/test/unittest "*logsearch/test/sql/*"
+test-sqllogic preset="release" *args: (build preset)
+    {{build_dir}}/{{preset}}/_deps/duckdb-build/test/unittest "*logsearch/test/sql/*" {{args}}
 
 # Run clang-tidy on every extension source without building.
 [group("lint")]
