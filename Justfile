@@ -41,7 +41,7 @@ test preset="release" *args: (build preset)
 # forwarded to DuckDB's unittest binary. Example: `just test-sqllogic debug --list-test-names-only`.
 [group("test")]
 test-sqllogic preset="release" *args: (build preset)
-    {{build_dir}}/{{preset}}/_deps/duckdb-build/test/unittest "*logsearch/test/sql/*" {{args}}
+    {{build_dir}}/{{preset}}/_deps/duckdb-build/test/unittest "*{{proj_dir}}/test/sql/*" {{args}}
 
 # Run clang-tidy on every extension source without building.
 [group("lint")]
