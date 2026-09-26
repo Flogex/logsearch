@@ -25,19 +25,7 @@ add_executable(
   storage/multi_block_writer.test.cpp
 )
 
-target_include_directories(unittests PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/test)
-
-# DuckDB registers its own and third_party include paths (src/include, fmt, ...) via the
-# directory-scoped include_directories() rather than as target-specific functions, so neither
-# duckdb_static nor the logsearch extension expose them through INTERFACE_INCLUDE_DIRECTORIES.
-# Instead, the include directories are a directory property.
-# At least the fmt include is needed because duckdb/function/function.hpp includes fmt/core.h.
-get_directory_property(
-  DUCKDB_INCLUDE_DIRECTORIES
-  DIRECTORY ${duckdb_SOURCE_DIR}
-  INCLUDE_DIRECTORIES
-)
-target_include_directories(unittests SYSTEM PRIVATE ${DUCKDB_INCLUDE_DIRECTORIES})
+target_include_directories(unittests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 set_target_properties(unittests PROPERTIES LINK_LIBRARIES_ONLY_TARGETS ON)
 
@@ -50,10 +38,15 @@ endif()
 target_link_libraries(
   unittests
   PRIVATE
-    # ${EXTENSION_NAME} pulls duckdb_static transitively (see build_static_extension).
+    # logsearch_extension pulls duckdb_static transitively (see build_static_extension).
     # Listing it explicitly here would double-list the .a and trip ld's "ignoring duplicate libraries" warning.
     # The extension's sanitizer options are PUBLIC, so they are inherited the same way.
-    ${EXTENSION_NAME}
+    logsearch_extension
+    # DuckDB registers its own and third_party include paths via the directory-scoped
+    # include_directories() rather than as target-specific functions, so neither duckdb_static nor
+    # logsearch_extension expose them through INTERFACE_INCLUDE_DIRECTORIES.
+    # This is why src/ re-exports them as a separate interface library.
+    logsearch_duckdb_headers
     duckdb_generated_extension_loader
     parquet_extension
     core_functions_extension
