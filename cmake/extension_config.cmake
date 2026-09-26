@@ -1,6 +1,6 @@
 include_guard(GLOBAL)
 
-cmake_path(SET LOGSEARCH_ROOT NORMALIZE "${CMAKE_CURRENT_LIST_DIR}/..")
+cmake_path(GET CMAKE_CURRENT_LIST_DIR PARENT_PATH LOGSEARCH_ROOT)
 # SOURCE_DIR is the directory DuckDB calls add_subdirectory() on.
 # It is set to src/ because only the extension targets belong in DuckDB's build.
 # TEST_DIR is set explicitly because otherwise it defaults to ${SOURCE_DIR}/test/sql.
