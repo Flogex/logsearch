@@ -36,12 +36,18 @@ must cover exactly one column
 statement error
 CREATE INDEX num ON tbl USING logsearch (id);
 ----
-can only be created on a VARCHAR column
+A Logsearch index can only be created on a VARCHAR column, but "id" is of type INTEGER
 
 statement error
 CREATE INDEX opt ON tbl USING logsearch (message) WITH (foo = 1);
 ----
-takes no options
+A Logsearch index takes no options, but "foo" was given
+
+# The option name is echoed back as a quoted identifier, so an embedded quote is escaped.
+statement error
+CREATE INDEX opt ON tbl USING logsearch (message) WITH ("a""b" = 1);
+----
+A Logsearch index takes no options, but "a""b" was given
 
 # The build needs whole row groups per scan task, which verify_parallelism splits up.
 statement ok

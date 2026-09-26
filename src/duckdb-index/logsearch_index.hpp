@@ -45,13 +45,13 @@ public:
                             duckdb::optional_ptr<duckdb::SelectionVector> non_deleted_sel) override;
     bool MergeIndexes(duckdb::IndexLock& state, BoundIndex& other_index) override;
     void Vacuum(duckdb::IndexLock& l) override;
-    duckdb::idx_t GetInMemorySize(duckdb::IndexLock& state) override;
+    duckdb::idx_t GetInMemorySize(duckdb::IndexLock& state) const override;
     void Verify(duckdb::IndexLock& l) override;
     std::string ToString(duckdb::IndexLock& l, bool display_ascii) override;
     void VerifyAllocations(duckdb::IndexLock& l) override;
     void VerifyBuffers(duckdb::IndexLock& l) override;
     std::string GetConstraintViolationMessage(duckdb::VerifyExistenceType verify_type, duckdb::idx_t failed_index,
-                                              duckdb::DataChunk& input) override;
+                                              duckdb::DataChunk& input) const override;
     duckdb::IndexStorageInfo SerializeToDisk(duckdb::QueryContext context,
                                              const duckdb::case_insensitive_map_t<duckdb::Value>& options) override;
     duckdb::IndexStorageInfo SerializeToWAL(const duckdb::case_insensitive_map_t<duckdb::Value>& options) override;

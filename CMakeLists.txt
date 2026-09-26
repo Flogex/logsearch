@@ -52,7 +52,7 @@ set(
 # Using CPM defaults policies CMP0077/0126/0135/0150 to NEW for every subproject, which is newer
 # than 3.14...3.29 that DuckDB requests. But that doesn't break anything (yet).
 block(SCOPE_FOR VARIABLES)
-  set(commit e500d77864fe565f90e68f06d729c25b11e775c5) # main as of 2026-08-09
+  set(commit 4a0d6fdecbf8363d15a2d8132338a346f9225957) # main as of 2026-09-01
   string(SUBSTRING "${commit}" 0 10 commit_short)
   CPMAddPackage(
     NAME duckdb

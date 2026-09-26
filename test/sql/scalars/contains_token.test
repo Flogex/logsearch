@@ -144,18 +144,18 @@ INSERT INTO needles VALUES (1, 'refused'), (2, 'REFUSED'), (3, 'refuse'), (4, ''
 statement error
 SELECT n.id, count(l.id) FROM needles n LEFT JOIN logs l ON contains_token(l.msg, n.needle) GROUP BY n.id;
 ----
-contains_token only supports a constant second argument for now
+"contains_token" only supports a constant second argument for now
 
 statement error
 SELECT contains_token('connection refused', needle) FROM needles;
 ----
-contains_token only supports a constant second argument for now
+"contains_token" only supports a constant second argument for now
 
 # Both arguments non-constant is the same rejection.
 statement error
 SELECT contains_token(msg, msg) FROM logs;
 ----
-contains_token only supports a constant second argument for now
+"contains_token" only supports a constant second argument for now
 
 # A constant expression still folds, so this is not a syntactic restriction.
 query I

@@ -13,6 +13,7 @@
 #include <duckdb/common/exception.hpp>
 #include <duckdb/common/exception/binder_exception.hpp>
 #include <duckdb/common/helper.hpp>
+#include <duckdb/common/identifier.hpp>
 #include <duckdb/common/mutex.hpp>
 #include <duckdb/common/query_context.hpp>
 #include <duckdb/common/sql_identifier.hpp>
@@ -64,17 +65,14 @@ duckdb::unique_ptr<duckdb::IndexBuildBindData> LogsearchBuildBind(duckdb::IndexB
     }
     const auto col_type = col_expression->GetReturnType();
     if (col_type != duckdb::LogicalTypeId::VARCHAR) {
-        // ExceptionFormatValue only accepts strings and numbers, so render the identifier here rather than passing
-        // the SQLQuotedIdentifier itself.
-        const auto col_name = duckdb::SQLQuotedIdentifier::ToString(col_expression->GetName().GetIdentifierName());
         throw duckdb::BinderException("A Logsearch index can only be created on a VARCHAR column, but %s is of type %s",
-                                      col_name,
+                                      col_expression->GetName(),
                                       col_type.ToString());
     }
 
     if (!input.info.options.empty()) {
-        throw duckdb::BinderException("A Logsearch index takes no options, but \"%s\" was given",
-                                      input.info.options.begin()->first);
+        throw duckdb::BinderException("A Logsearch index takes no options, but %s was given",
+                                      duckdb::SQLQuotedIdentifier::ToString(input.info.options.begin()->first));
     }
 
     // The build partitions by row group and folds the per-task indexes together by concatenating their partitions,

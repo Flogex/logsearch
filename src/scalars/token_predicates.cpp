@@ -77,10 +77,13 @@ std::optional<duckdb::Value> GetConstantQueryArgument(const duckdb::BindScalarFu
 
     // Cast the query token to the declared type before we use it in the bind data. DuckDB's conversion would only run
     // later.
-    if (constant->type() != declared_type && !constant->TryCastAs(input.GetClientContext(), declared_type)) {
-        // DuckDB will throw a ConversionException later during binding when the value cannot be casted to the declared
-        // parameter type.
-        return std::nullopt;
+    if (constant->type() != declared_type) {
+        constant = constant->TryCastAs(input.GetClientContext(), declared_type);
+        if (!constant) {
+            // DuckDB will throw a ConversionException later during binding when the value cannot be casted to the
+            // declared parameter type.
+            return std::nullopt;
+        }
     }
 
     // Assert that a potential cast cannot produce a NULL value from a non-NULL one.

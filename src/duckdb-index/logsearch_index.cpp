@@ -57,7 +57,7 @@ std::string LogsearchIndex::ToString(duckdb::IndexLock& /*l*/, bool /*display_as
                                       static_cast<unsigned long long>(index_->NumSealedPartitions()));
 }
 
-duckdb::idx_t LogsearchIndex::GetInMemorySize(duckdb::IndexLock& /*state*/) {
+duckdb::idx_t LogsearchIndex::GetInMemorySize(duckdb::IndexLock& /*state*/) const {
     // TODO: Account for the Memtable arena and the blocks held by the sealed SSTables.
     return 0;
 }
@@ -87,7 +87,7 @@ bool LogsearchIndex::MergeIndexes(duckdb::IndexLock& /*state*/, BoundIndex& /*ot
 
 std::string LogsearchIndex::GetConstraintViolationMessage(duckdb::VerifyExistenceType /*verify_type*/,
                                                           duckdb::idx_t /*failed_index*/,
-                                                          duckdb::DataChunk& /*input*/) {
+                                                          duckdb::DataChunk& /*input*/) const {
     throw duckdb::InternalException("Logsearch indexes never enforce a constraint");
 }
 

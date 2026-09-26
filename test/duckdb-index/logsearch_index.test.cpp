@@ -12,6 +12,8 @@
 #include <duckdb/catalog/catalog.hpp>
 #include <duckdb/catalog/catalog_entry/duck_table_entry.hpp>
 #include <duckdb/catalog/catalog_entry/table_catalog_entry.hpp>
+#include <duckdb/common/identifier.hpp>
+#include <duckdb/common/shared_ptr.hpp>
 #include <duckdb/common/typedefs.hpp>
 #include <duckdb/common/types/value.hpp>
 #include <duckdb/main/client_context.hpp>
@@ -20,7 +22,10 @@
 #include <duckdb/storage/data_table.hpp>
 #include <duckdb/storage/storage_info.hpp>
 #include <duckdb/storage/table/data_table_info.hpp>
+#include <duckdb/storage/table/index_entry.hpp>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 using Catch::Matchers::ContainsSubstring;
@@ -31,17 +36,21 @@ using logsearch::inverted_index::InvertedIndex;
 
 namespace {
 
-//! Returns the LogsearchIndex named `index_name` on `table_name`.
-LogsearchIndex& FindIndex(duckdb::Connection& con, const std::string& table_name, const std::string& index_name) {
-    duckdb::optional_ptr<duckdb::BoundIndex> index;
+//! Returns a read handle on the LogsearchIndex named `index_name` on `table_name`.
+//! The handle holds the index entry's lock shared. Anything that needs it exclusively (DML on the table, DROP INDEX,
+//! checkpoints) blocks until the handle is gone, and deadlocks when run from the same thread.
+duckdb::IndexReadHandle<LogsearchIndex> FindIndex(duckdb::Connection& con, const duckdb::Identifier& table_name,
+                                                  const duckdb::Identifier& index_name) {
+    std::optional<duckdb::IndexReadHandle<LogsearchIndex>> handle;
     con.context->RunFunctionInTransaction([&]() {
-        auto& table =
-            duckdb::Catalog::GetEntry<duckdb::TableCatalogEntry>(*con.context, duckdb::Identifier(table_name));
+        auto& table = duckdb::Catalog::GetEntry<duckdb::TableCatalogEntry>(*con.context, table_name);
         duckdb::DataTable& storage = table.Cast<duckdb::DuckTableEntry>().GetStorage();
-        index = storage.GetDataTableInfo()->GetIndexes().Find(duckdb::Identifier(index_name));
+        const duckdb::shared_ptr<duckdb::IndexEntry> entry =
+            storage.GetDataTableInfo()->GetIndexes().FindEntry(index_name);
+        REQUIRE(entry);
+        handle.emplace(entry->GetReadHandle<LogsearchIndex>());
     });
-    REQUIRE(index);
-    return index->Cast<LogsearchIndex>();
+    return std::move(*handle);
 }
 
 //! An in-memory database with the logsearch extension loaded, plus helpers to run SQL and to reach the inverted index
@@ -87,9 +96,17 @@ struct LogsearchIndexFixture {
         return QueryRow(sql).at(0);
     }
 
-    //! The inverted index behind `index_name` on `table_name`.
-    const InvertedIndex& IndexOf(const std::string& table_name, const std::string& index_name) {
-        return FindIndex(con, table_name, index_name).GetInvertedIndex();
+    //! A read handle on the index `index_name` on `table_name`.
+    [[nodiscard]] duckdb::IndexReadHandle<LogsearchIndex> IndexOf(const duckdb::Identifier& table_name,
+                                                                  const duckdb::Identifier& index_name) {
+        return FindIndex(con, table_name, index_name);
+    }
+
+    //! The inverted index behind `index_name` on `table_name`, without holding the entry lock.
+    //! Only valid while nothing retires the index entry.
+    const InvertedIndex& UnguardedIndexOf(const duckdb::Identifier& table_name, const duckdb::Identifier& index_name) {
+        const auto handle = IndexOf(table_name, index_name);
+        return handle->GetInvertedIndex();
     }
 
     duckdb::DuckDB db{nullptr};
@@ -104,7 +121,7 @@ TEST_CASE_METHOD(LogsearchIndexFixture, "CREATE INDEX builds an inverted index o
           "('disk full')) t(message)");
     Query("CREATE INDEX msg_idx ON logs USING logsearch (message)");
 
-    const InvertedIndex& index = IndexOf("logs", "msg_idx");
+    const InvertedIndex& index = UnguardedIndexOf("logs", "msg_idx");
     CHECK_THAT(index.Lookup("connection"), Equals(std::vector<row_t>{0, 1}));
     CHECK_THAT(index.Lookup("refused"), Equals(std::vector<row_t>{0}));
     CHECK_THAT(index.Lookup("disk"), Equals(std::vector<row_t>{2}));
@@ -118,7 +135,7 @@ TEST_CASE_METHOD(LogsearchIndexFixture, "An index on an empty table is empty", "
     Query("CREATE TABLE logs (message VARCHAR)");
     Query("CREATE INDEX msg_idx ON logs USING logsearch (message)");
 
-    const InvertedIndex& index = IndexOf("logs", "msg_idx");
+    const InvertedIndex& index = UnguardedIndexOf("logs", "msg_idx");
     CHECK(index.TotalDictionarySize() == 0);
     CHECK(index.Lookup("anything").empty());
 }
@@ -130,7 +147,7 @@ TEST_CASE_METHOD(LogsearchIndexFixture, "A index stays empty when inserting docu
     Query("CREATE TABLE logs AS SELECT * FROM (VALUES (''), ('   '), (E'\\t\\n')) t(message)");
     Query("CREATE INDEX msg_idx ON logs USING logsearch (message)");
 
-    const InvertedIndex& index = IndexOf("logs", "msg_idx");
+    const InvertedIndex& index = UnguardedIndexOf("logs", "msg_idx");
     CHECK(index.TotalDictionarySize() == 0);
     CHECK(index.Lookup("the").empty());
     CHECK(index.Lookup("anything").empty());
@@ -160,7 +177,7 @@ TEST_CASE_METHOD(LogsearchIndexFixture, "Lookup matches whole terms, not prefixe
     Query("CREATE TABLE logs AS SELECT * FROM (VALUES ('connect connection connections reconnect')) t(message)");
     Query("CREATE INDEX msg_idx ON logs USING logsearch (message)");
 
-    const InvertedIndex& index = IndexOf("logs", "msg_idx");
+    const InvertedIndex& index = UnguardedIndexOf("logs", "msg_idx");
     CHECK_THAT(index.Lookup("connect"), Equals(std::vector<row_t>{0}));
     CHECK_THAT(index.Lookup("connection"), Equals(std::vector<row_t>{0}));
     CHECK_THAT(index.Lookup("connections"), Equals(std::vector<row_t>{0}));
@@ -178,7 +195,7 @@ TEST_CASE_METHOD(LogsearchIndexFixture, "Terms longer than an inlined string_t a
     Query("CREATE TABLE logs AS SELECT * FROM (VALUES ('short " + long_term + "')) t(message)");
     Query("CREATE INDEX msg_idx ON logs USING logsearch (message)");
 
-    const InvertedIndex& index = IndexOf("logs", "msg_idx");
+    const InvertedIndex& index = UnguardedIndexOf("logs", "msg_idx");
     CHECK_THAT(index.Lookup(long_term), Equals(std::vector<row_t>{0}));
     CHECK_THAT(index.Lookup("short"), Equals(std::vector<row_t>{0}));
     CHECK(index.Lookup(long_term.substr(0, 499)).empty());
@@ -188,7 +205,7 @@ TEST_CASE_METHOD(LogsearchIndexFixture, "Indexed terms are lowercased by the ana
     Query("CREATE TABLE logs AS SELECT * FROM (VALUES ('Connection REFUSED')) t(message)");
     Query("CREATE INDEX msg_idx ON logs USING logsearch (message)");
 
-    const InvertedIndex& index = IndexOf("logs", "msg_idx");
+    const InvertedIndex& index = UnguardedIndexOf("logs", "msg_idx");
     CHECK_THAT(index.Lookup("connection"), Equals(std::vector<row_t>{0}));
     CHECK_THAT(index.Lookup("refused"), Equals(std::vector<row_t>{0}));
 }
@@ -198,7 +215,7 @@ TEST_CASE_METHOD(LogsearchIndexFixture, "A term repeated within one document yie
     Query("CREATE TABLE logs AS SELECT * FROM (VALUES ('retry retry retry'), ('retry')) t(message)");
     Query("CREATE INDEX msg_idx ON logs USING logsearch (message)");
 
-    const InvertedIndex& index = IndexOf("logs", "msg_idx");
+    const InvertedIndex& index = UnguardedIndexOf("logs", "msg_idx");
     CHECK_THAT(index.Lookup("retry"), Equals(std::vector<row_t>{0, 1}));
 }
 
@@ -207,7 +224,7 @@ TEST_CASE_METHOD(LogsearchIndexFixture, "Rows with a NULL key are skipped withou
     Query("CREATE TABLE logs AS SELECT * FROM (VALUES ('alpha'), (NULL), ('alpha beta')) t(message)");
     Query("CREATE INDEX msg_idx ON logs USING logsearch (message)");
 
-    const InvertedIndex& index = IndexOf("logs", "msg_idx");
+    const InvertedIndex& index = UnguardedIndexOf("logs", "msg_idx");
     CHECK_THAT(index.Lookup("alpha"), Equals(std::vector<row_t>{0, 2}));
     CHECK_THAT(index.Lookup("beta"), Equals(std::vector<row_t>{2}));
 }
@@ -218,7 +235,7 @@ TEST_CASE_METHOD(LogsearchIndexFixture, "Rows deleted before the build leave gap
     Query("DELETE FROM logs WHERE message = 'beta'");
     Query("CREATE INDEX msg_idx ON logs USING logsearch (message)");
 
-    const InvertedIndex& index = IndexOf("logs", "msg_idx");
+    const InvertedIndex& index = UnguardedIndexOf("logs", "msg_idx");
     CHECK_THAT(index.Lookup("alpha"), Equals(std::vector<row_t>{0, 2}));
     CHECK_THAT(index.Lookup("gamma"), Equals(std::vector<row_t>{2}));
     CHECK(index.Lookup("beta").empty());
@@ -234,7 +251,7 @@ TEST_CASE_METHOD(LogsearchIndexFixture, "Uncommitted rows never reach the index 
     Query("INSERT INTO logs VALUES ('uncommitted')");
 
     Query("CREATE INDEX msg_idx ON logs USING logsearch (message)");
-    const InvertedIndex& index = IndexOf("logs", "msg_idx");
+    const InvertedIndex& index = UnguardedIndexOf("logs", "msg_idx");
     CHECK_THAT(index.Lookup("committed"), Equals(std::vector<row_t>{0}));
     CHECK(index.Lookup("uncommitted").empty());
 }
@@ -246,7 +263,7 @@ TEST_CASE_METHOD(LogsearchIndexFixture, "An index can be created on a table with
     Query("INSERT INTO logs (id, message) VALUES (1, 'alpha'), (2, 'beta')");
     Query("CREATE INDEX msg_idx ON logs USING logsearch (message)");
 
-    const InvertedIndex& index = IndexOf("logs", "msg_idx");
+    const InvertedIndex& index = UnguardedIndexOf("logs", "msg_idx");
     CHECK_THAT(index.Lookup("alpha"), Equals(std::vector<row_t>{0}));
     CHECK_THAT(index.Lookup("beta"), Equals(std::vector<row_t>{1}));
 }
@@ -257,8 +274,8 @@ TEST_CASE_METHOD(LogsearchIndexFixture, "Several Logsearch indexes can coexist o
     Query("CREATE INDEX msg_idx ON logs USING logsearch (message)");
     Query("CREATE INDEX component_idx ON logs USING logsearch (component)");
 
-    const InvertedIndex& message_index = IndexOf("logs", "msg_idx");
-    const InvertedIndex& component_index = IndexOf("logs", "component_idx");
+    const InvertedIndex& message_index = UnguardedIndexOf("logs", "msg_idx");
+    const InvertedIndex& component_index = UnguardedIndexOf("logs", "component_idx");
     CHECK_THAT(message_index.Lookup("disk"), Equals(std::vector<row_t>{0}));
     CHECK(message_index.Lookup("storage").empty());
     CHECK_THAT(component_index.Lookup("storage"), Equals(std::vector<row_t>{0}));
@@ -285,7 +302,7 @@ TEST_CASE_METHOD(LogsearchIndexFixture, "A dictionary spanning many blocks stays
     Query("CREATE TABLE logs AS SELECT 'term' || i AS message FROM range(" + std::to_string(row_count) + ") t(i)");
     Query("CREATE INDEX msg_idx ON logs USING logsearch (message)");
 
-    const InvertedIndex& index = IndexOf("logs", "msg_idx");
+    const InvertedIndex& index = UnguardedIndexOf("logs", "msg_idx");
     CHECK(index.NumSealedPartitions() == 1);
     CHECK_THAT(index.Lookup("term0"), Equals(std::vector<row_t>{0}));
     CHECK_THAT(index.Lookup("term1"), Equals(std::vector<row_t>{1}));
@@ -313,7 +330,7 @@ TEST_CASE_METHOD(LogsearchIndexFixture, "A table spanning several row groups yie
           " THEN ' needle' ELSE '' END AS message FROM range(" + std::to_string(row_count) + ") t(i)");
     Query("CREATE INDEX big_idx ON big_tbl USING logsearch (message)");
 
-    const InvertedIndex& index = IndexOf("big_tbl", "big_idx");
+    const InvertedIndex& index = UnguardedIndexOf("big_tbl", "big_idx");
     // The two full row groups are always sealed. The trailing one only is if a Merge ran, i.e. if the build used
     // more than one task, so the exact count is thread-count dependent while the Lookup results below are not.
     CHECK(index.NumSealedPartitions() == (single_threaded ? 2 : 3));
@@ -343,7 +360,8 @@ TEST_CASE("An index outlives the connection that built it", "[duckdb_index]") {
     }
 
     duckdb::Connection reader(db);
-    const InvertedIndex& index = FindIndex(reader, "logs", "msg_idx").GetInvertedIndex();
+    const auto handle = FindIndex(reader, "logs", "msg_idx");
+    const InvertedIndex& index = handle->GetInvertedIndex();
     CHECK_THAT(index.Lookup("alpha"), Equals(std::vector<row_t>{0, 1}));
     CHECK_THAT(index.Lookup("gamma"), Equals(std::vector<row_t>{1}));
 }

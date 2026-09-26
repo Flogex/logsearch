@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <duckdb/common/allocator.hpp>
 #include <duckdb/common/exception/binder_exception.hpp>
+#include <duckdb/common/identifier.hpp>
 #include <duckdb/common/typedefs.hpp>
 #include <duckdb/common/types.hpp>
 #include <duckdb/function/scalar_function.hpp>
@@ -65,7 +66,7 @@ public:
 
 private:
     analyzer::Pipeline pipeline_;
-    std::string function_name_;
+    duckdb::Identifier function_name_;
     bool argument_is_list_;
     std::vector<std::string> terms_;
 };
